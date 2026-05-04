@@ -6,7 +6,7 @@ A gamified life-tracking web app. Complete real-world tasks to earn XP, level up
 
 - **Frontend** — Vanilla HTML/CSS/JS (ES modules, no framework)
 - **Backend/DB** — Supabase (Auth + PostgreSQL)
-- **Hosting** — Vercel
+- **Hosting** — Netlify
 
 ---
 
@@ -33,61 +33,60 @@ This creates all tables with Row Level Security (RLS) enabled so users can only 
 
 1. In Supabase go to **Authentication → Settings**.
 2. Under **Email**, make sure **Enable Email Confirmations** is turned on.
-3. Under **URL Configuration**, add your Vercel deployment URL to **Site URL** (e.g. `https://your-app.vercel.app`) and to the **Redirect URLs** list.
+3. Under **URL Configuration**, add your Netlify deployment URL to **Site URL** (e.g. `https://your-app.netlify.app`) and to the **Redirect URLs** list.
 4. For local dev, also add `http://localhost:3000` to Redirect URLs.
 
-### 4. Deploy to Vercel
+### 4. Deploy to Netlify
 
 #### Option A — GitHub import (recommended)
 
 1. Push this repo to GitHub.
-2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import the repo.
-3. In the **Environment Variables** section add:
-   | Name | Value |
-   |------|-------|
+2. Go to [netlify.com](https://netlify.com) → **Add new site → Import an existing project** → connect your repo.
+3. Netlify will auto-detect `netlify.toml`. Confirm the settings:
+   - **Build command**: *(auto-filled from netlify.toml)*
+   - **Publish directory**: `.`
+4. Before deploying, go to **Site configuration → Environment variables** and add:
+   | Key | Value |
+   |-----|-------|
    | `SUPABASE_URL` | Your Supabase Project URL |
    | `SUPABASE_ANON_KEY` | Your Supabase anon key |
-4. Click **Deploy**.
+5. Click **Deploy site**.
 
-#### Option B — Vercel CLI
+#### Option B — Netlify CLI
 
 ```bash
-npm i -g vercel
-vercel --prod
-# Follow prompts, then add env vars in the Vercel dashboard
+npm i -g netlify-cli
+netlify login
+netlify init
+# Follow prompts to link your repo
+
+# Set env vars
+netlify env:set SUPABASE_URL "https://your-project.supabase.co"
+netlify env:set SUPABASE_ANON_KEY "your-anon-key"
+
+# Deploy
+netlify deploy --prod
 ```
 
-### 5. Inject Environment Variables at Build Time
+> **How env vars are injected:** `netlify.toml` runs a `sed` command at build time that replaces the `__SUPABASE_URL__` and `__SUPABASE_ANON_KEY__` placeholder tokens in `index.html` with your real values. No Node.js or bundler required.
 
-The `index.html` file contains placeholder tokens that need to be replaced with real values. Add a **Build Command** in Vercel:
+### 5. Local Development
 
-```bash
-sed -i "s|__SUPABASE_URL__|$SUPABASE_URL|g" index.html && sed -i "s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g" index.html
+For local dev, temporarily replace the placeholder tokens in `index.html` with your real Supabase values (do not commit them):
+
+```html
+<!-- index.html — change these two lines for local dev only -->
+window.ENV_SUPABASE_URL  = 'https://your-project.supabase.co';
+window.ENV_SUPABASE_ANON = 'your-anon-key';
 ```
 
-In **Vercel → Project Settings → General → Build & Development Settings**:
-- **Build Command**: `sed -i "s|__SUPABASE_URL__|$SUPABASE_URL|g" index.html && sed -i "s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g" index.html`
-- **Output Directory**: `.` (root)
-- **Install Command**: *(leave blank)*
-
-### 6. Local Development
+Then serve with any static server:
 
 ```bash
-# Clone the repo
-git clone <your-repo-url>
-cd life-rpg
-
-# Create a local env file (not committed)
-cp .env.example .env.local
-# Fill in your Supabase URL and anon key
-
-# Serve locally (any static server works)
 npx serve .
 # or
 python3 -m http.server 3000
 ```
-
-For local dev, edit `index.html` directly and replace the placeholder tokens with your actual values temporarily (do not commit them).
 
 ---
 
@@ -99,7 +98,7 @@ For local dev, edit `index.html` directly and replace the placeholder tokens wit
 ├── app.js              Main routing, auth state, nav
 ├── supabase.js         Supabase client + all DB functions
 ├── styles.css          All styles + CSS variables for theming
-├── vercel.json         Vercel SPA rewrite rules
+├── netlify.toml        SPA redirect rules + build command
 ├── screens/
 │   ├── character.js    Avatar, stats, XP bar
 │   ├── quests.js       Daily quests + streaks
