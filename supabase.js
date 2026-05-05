@@ -162,11 +162,16 @@ export async function completeQuest(userId, quest) {
     level: newLevel, xp: newXp, xp_to_next_level: newXpToNext, character_class: newClass,
   });
 
-  const newStatValue = Math.min(100, (stats[statKey] || 0) + statBoost);
-  const updatedStats = await updateStats(userId, { [statKey]: newStatValue });
+  let updatedStats = stats;
+  if (statKey) {
+    const newStatValue = Math.min(100, (stats[statKey] || 0) + statBoost);
+    updatedStats = await updateStats(userId, { [statKey]: newStatValue });
+  } else {
+    console.warn('No stat mapping for quest category:', quest.category);
+  }
 
   await logActivity(userId, 'quest_complete',
-    `Completed quest: ${quest.title} (+${xpGain} XP, +${statBoost} ${statKey})`, xpGain);
+    `Completed quest: ${quest.title} (+${xpGain} XP${statKey ? `, +${statBoost} ${statKey}` : ''})`, xpGain);
 
   if (leveledUp) {
     await logActivity(userId, 'level_up', `Reached Level ${newLevel} — ${newClass}!`, 0);
@@ -302,7 +307,7 @@ export async function getReflectionHistory(userId, limit = 30) {
 export async function getTransactions(userId, year, month) {
   // Build date range for the requested month
   const from = `${year}-${String(month).padStart(2, '0')}-01`;
-  const to   = new Date(year, month, 0).toISOString().split('T')[0]; // last day
+  const to   = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0]; // last day, UTC-safe
 
   const { data, error } = await supabase
     .from('transactions')
