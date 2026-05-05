@@ -940,6 +940,103 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .stats-grid { grid-template-columns: repeat(5, 1fr); }
 }
 
-/* 6-item bottom nav — tighter on small screens */
+/* 7-item bottom nav — tighter on small screens */
 .bottom-nav .nav-item { font-size: 0.6rem; }
 .bottom-nav .nav-icon { font-size: 1.2rem; }
+
+/* Hide text labels below 480px so 7 icons still fit */
+@media (max-width: 480px) {
+  .bottom-nav .nav-item span:not(.nav-icon) { display: none; }
+  .bottom-nav .nav-item { padding: 0.75rem 0; }
+}
+
+/* ─── BUDGET SCREEN ─────────────────────────────────────────────────────────── */
+.budget-screen { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Month navigator */
+.month-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 1rem;
+}
+.month-label {
+  font-family: var(--font-heading); font-size: 1rem;
+  color: var(--text-primary); letter-spacing: 0.04em;
+}
+.month-prev, .month-next {
+  font-size: 0.85rem; padding: 0.3rem 0.6rem;
+  color: var(--text-secondary);
+}
+.month-prev:hover, .month-next:hover:not(:disabled) { color: var(--gold); }
+.month-next:disabled { opacity: 0.3; cursor: default; }
+
+/* Summary cards */
+.budget-summary {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem;
+}
+.summary-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.25rem; padding: 0.875rem 0.5rem; text-align: center;
+}
+.summary-icon  { font-size: 1.3rem; line-height: 1; }
+.summary-label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.summary-amount { font-size: 1rem; font-weight: 700; }
+
+.summary-in  { border-top: 2px solid var(--stat-green); }
+.summary-out { border-top: 2px solid var(--error); }
+.summary-net { border-top: 2px solid var(--gold); }
+
+.amount-positive { color: var(--stat-green); }
+.amount-negative { color: var(--error); }
+
+/* Category breakdown */
+.breakdown-title {
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-secondary); margin-bottom: 0.6rem;
+}
+.breakdown-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.breakdown-row  { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; }
+.breakdown-cat  { color: var(--text-primary); }
+
+/* Transaction list */
+.tx-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.tx-card { }
+.tx-main { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.tx-left { flex: 1; min-width: 0; }
+.tx-details { flex: 1; min-width: 0; }
+.tx-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.25rem;
+}
+.tx-title  { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.tx-amount { font-weight: 700; font-size: 0.9rem; white-space: nowrap; flex-shrink: 0; }
+.tx-meta   { display: flex; align-items: center; gap: 0.5rem; }
+.tx-date   { font-size: 0.72rem; color: var(--text-muted); }
+.tx-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
+
+/* Category badges on transactions */
+.tx-cat-badge {
+  display: inline-block; font-size: 0.7rem; font-weight: 500;
+  padding: 0.1rem 0.5rem; border-radius: 999px;
+}
+.tx-cat-expense { background: rgba(239,68,68,0.12);   color: var(--error); }
+.tx-cat-income  { background: rgba(16,185,129,0.12);  color: var(--stat-green); }
+
+/* Type toggle in modal */
+.type-toggle {
+  display: flex; background: var(--bg-secondary);
+  border-radius: var(--radius-md); padding: 0.2rem;
+  margin-bottom: 0.75rem;
+}
+.type-btn {
+  flex: 1; padding: 0.45rem; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-secondary);
+  font-size: 0.875rem; font-weight: 600;
+  transition: all var(--transition);
+}
+.type-btn.active {
+  background: var(--purple-accent); color: #fff;
+  box-shadow: var(--glow-purple);
+}
+.type-btn[data-type="income"].active  { background: var(--stat-green); box-shadow: 0 0 16px rgba(16,185,129,0.4); }
+.type-btn[data-type="expense"].active { background: var(--error);      box-shadow: 0 0 16px rgba(239,68,68,0.4); }

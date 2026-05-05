@@ -7,6 +7,7 @@ import { renderObjectives } from './screens/objectives.js';
 import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
 import { renderReflection } from './screens/reflection.js';
+import { renderBudget     } from './screens/budget.js';
 import { xpPercent, classForLevel } from './utils/xp.js';
 import { showToast, animateXPBar } from './utils/animations.js';
 
@@ -24,7 +25,7 @@ let currentProfile = null;
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
-const SCREENS = ['character', 'quests', 'objectives', 'rewards', 'journal', 'reflection'];
+const SCREENS = ['character', 'quests', 'objectives', 'rewards', 'journal', 'reflection', 'budget'];
 
 async function navigateTo(screen) {
   if (!SCREENS.includes(screen)) screen = 'character';
@@ -45,6 +46,7 @@ async function navigateTo(screen) {
       case 'rewards':     await renderRewards(currentUserId, content, handleXPUpdate); break;
       case 'journal':     await renderJournal(currentUserId, content); break;
       case 'reflection':  await renderReflection(currentUserId, content); break;
+      case 'budget':      await renderBudget(currentUserId, content); break;
     }
   } catch (err) {
     console.error('Screen render error:', err);
