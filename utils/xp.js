@@ -15,10 +15,11 @@ export const STAT_BOOST_BY_DIFFICULTY = {
 };
 
 export const CATEGORY_STAT_MAP = {
-  health: 'strength',
-  mind: 'intellect',
-  career: 'ambition',
-  finance: 'wealth',
+  health:        'health',
+  mind:          'intellect',
+  work:          'work',
+  finance:       'wealth',
+  relationships: 'relationships',
 };
 
 const CLASS_THRESHOLDS = [
@@ -62,12 +63,7 @@ export function applyXP(currentLevel, currentXp, currentXpToNext, xpGain) {
     leveledUp = true;
   }
 
-  return {
-    newLevel: level,
-    newXp: xp,
-    newXpToNext: xpToNext,
-    leveledUp,
-  };
+  return { newLevel: level, newXp: xp, newXpToNext: xpToNext, leveledUp };
 }
 
 /** XP progress percentage (0-100) for the current level */
@@ -75,7 +71,7 @@ export function xpPercent(xp, xpToNext) {
   return Math.min(100, Math.round((xp / xpToNext) * 100));
 }
 
-/** Stat "level" label — every 10 points is a tier */
+/** Stat tier label — every 20 points is a tier */
 export function statLabel(value) {
   if (value >= 90) return 'Legendary';
   if (value >= 70) return 'Expert';

@@ -6,6 +6,7 @@ import { renderQuests     } from './screens/quests.js';
 import { renderObjectives } from './screens/objectives.js';
 import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
+import { renderReflection } from './screens/reflection.js';
 import { xpPercent, classForLevel } from './utils/xp.js';
 import { showToast, animateXPBar } from './utils/animations.js';
 
@@ -23,13 +24,12 @@ let currentProfile = null;
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
-const SCREENS = ['character', 'quests', 'objectives', 'rewards', 'journal'];
+const SCREENS = ['character', 'quests', 'objectives', 'rewards', 'journal', 'reflection'];
 
 async function navigateTo(screen) {
   if (!SCREENS.includes(screen)) screen = 'character';
   currentScreen = screen;
 
-  // Update nav
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.screen === screen);
   });
@@ -39,21 +39,12 @@ async function navigateTo(screen) {
 
   try {
     switch (screen) {
-      case 'character':
-        await renderCharacter(currentUserId, content);
-        break;
-      case 'quests':
-        await renderQuests(currentUserId, content, handleXPUpdate);
-        break;
-      case 'objectives':
-        await renderObjectives(currentUserId, content);
-        break;
-      case 'rewards':
-        await renderRewards(currentUserId, content, handleXPUpdate);
-        break;
-      case 'journal':
-        await renderJournal(currentUserId, content);
-        break;
+      case 'character':   await renderCharacter(currentUserId, content); break;
+      case 'quests':      await renderQuests(currentUserId, content, handleXPUpdate); break;
+      case 'objectives':  await renderObjectives(currentUserId, content); break;
+      case 'rewards':     await renderRewards(currentUserId, content, handleXPUpdate); break;
+      case 'journal':     await renderJournal(currentUserId, content); break;
+      case 'reflection':  await renderReflection(currentUserId, content); break;
     }
   } catch (err) {
     console.error('Screen render error:', err);
@@ -61,8 +52,7 @@ async function navigateTo(screen) {
   }
 }
 
-// Called by screens when XP changes, to keep the header XP bar in sync
-async function handleXPUpdate(profile) {
+function handleXPUpdate(profile) {
   currentProfile = profile;
   updateHeaderXP(profile);
 }
@@ -81,7 +71,7 @@ function updateHeaderXP(profile) {
   if (barEl)  animateXPBar(barEl, parseFloat(barEl.style.width) || 0, pct, 600);
 }
 
-// ─── AUTH GATE ────────────────────────────────────────────────────────────────
+// ─── AUTH ────────────────────────────────────────────────────────────────────
 
 function showAuthScreen() {
   document.getElementById('auth-screen').classList.remove('hidden');
@@ -96,19 +86,13 @@ function showAppShell() {
 async function initUser(userId) {
   currentUserId = userId;
 
-  try {
-    await seedNewUser(userId);
-  } catch (err) {
-    // Non-fatal — user may already be seeded
-    console.warn('Seed skipped:', err.message);
-  }
+  try { await seedNewUser(userId); }
+  catch (err) { console.warn('Seed skipped:', err.message); }
 
   try {
     currentProfile = await getProfile(userId);
     updateHeaderXP(currentProfile);
-  } catch (err) {
-    console.error('Failed to load profile:', err);
-  }
+  } catch (err) { console.error('Failed to load profile:', err); }
 
   showAppShell();
   navigateTo('character');
@@ -117,12 +101,10 @@ async function initUser(userId) {
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ─── NAV CLICKS ─────────────────────────────────────────────────────────
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
   });
 
-  // ─── THEME TOGGLE ───────────────────────────────────────────────────────
   const themeBtn = document.getElementById('theme-toggle');
   themeBtn.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
@@ -133,13 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-  // ─── SIGN-OUT ───────────────────────────────────────────────────────────
   document.getElementById('sign-out-btn').addEventListener('click', async () => {
     await signOut();
   });
 
-  // ─── MAGIC LINK FORM ────────────────────────────────────────────────────
-  const emailForm = document.getElementById('email-form');
+  const emailForm  = document.getElementById('email-form');
   const emailInput = document.getElementById('email-input');
   const authMsg    = document.getElementById('auth-message');
 
@@ -167,13 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ─── AUTH STATE ─────────────────────────────────────────────────────────
   onAuthStateChange(async (session) => {
-    if (session?.user) {
-      await initUser(session.user.id);
-    } else {
-      currentUserId = null;
-      showAuthScreen();
-    }
+    if (session?.user) { await initUser(session.user.id); }
+    else { currentUserId = null; showAuthScreen(); }
   });
 });

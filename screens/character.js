@@ -9,11 +9,7 @@ const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝'
 export async function renderCharacter(userId, container) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
 
-  const [profile, stats] = await Promise.all([
-    getProfile(userId),
-    getStats(userId),
-  ]);
-
+  const [profile, stats] = await Promise.all([getProfile(userId), getStats(userId)]);
   const xpPct = xpPercent(profile.xp, profile.xp_to_next_level);
 
   container.innerHTML = `
@@ -47,10 +43,11 @@ export async function renderCharacter(userId, container) {
       </div>
 
       <div class="stats-grid">
-        ${renderStatCard('strength', '💪', 'Strength', stats.strength, 'stat-red')}
-        ${renderStatCard('intellect', '🧠', 'Intellect', stats.intellect, 'stat-purple')}
-        ${renderStatCard('ambition', '🎯', 'Ambition', stats.ambition, 'stat-blue')}
-        ${renderStatCard('wealth', '💰', 'Wealth', stats.wealth, 'stat-amber')}
+        ${renderStatCard('health',        '❤️',  'Health',        stats.health,        'stat-red')}
+        ${renderStatCard('intellect',     '🧠',  'Intellect',     stats.intellect,     'stat-purple')}
+        ${renderStatCard('work',          '💼',  'Work',          stats.work,          'stat-blue')}
+        ${renderStatCard('wealth',        '💰',  'Wealth',        stats.wealth,        'stat-amber')}
+        ${renderStatCard('relationships', '🤝',  'Relationships', stats.relationships, 'stat-green')}
       </div>
     </div>
 
@@ -78,7 +75,7 @@ export async function renderCharacter(userId, container) {
     </div>
   `;
 
-  // Animate XP bar after render
+  // Animate XP bar
   requestAnimationFrame(() => {
     const bar = document.getElementById('xp-bar');
     if (bar) animateXPBar(bar, 0, xpPct);
@@ -86,7 +83,7 @@ export async function renderCharacter(userId, container) {
 
   // Animate stat bars
   requestAnimationFrame(() => {
-    ['strength','intellect','ambition','wealth'].forEach(stat => {
+    ['health','intellect','work','wealth','relationships'].forEach(stat => {
       const bar = document.getElementById(`stat-bar-${stat}`);
       if (bar) animateXPBar(bar, 0, stats[stat], 600);
     });
@@ -110,9 +107,7 @@ export async function renderCharacter(userId, container) {
       btn.classList.add('selected');
       document.getElementById('avatar-modal').classList.add('hidden');
       showToast('Avatar updated!', 'success');
-    } catch (err) {
-      showToast('Failed to update avatar', 'error');
-    }
+    } catch { showToast('Failed to update avatar', 'error'); }
   });
 
   // Name edit
@@ -131,22 +126,15 @@ export async function renderCharacter(userId, container) {
       document.getElementById('char-name').textContent = name;
       document.getElementById('name-modal').classList.add('hidden');
       showToast('Name updated!', 'success');
-    } catch (err) {
-      showToast('Failed to update name', 'error');
-    }
+    } catch { showToast('Failed to update name', 'error'); }
   });
 
-  // Close modals on overlay click
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.classList.add('hidden');
-    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
   });
 }
 
 function renderStatCard(stat, icon, label, value, colorClass) {
-  const pct = Math.min(100, value);
-  const tier = statLabel(value);
   return `
     <div class="stat-card card">
       <div class="stat-card-header">
@@ -157,7 +145,7 @@ function renderStatCard(stat, icon, label, value, colorClass) {
       <div class="stat-bar-track">
         <div class="stat-bar-fill ${colorClass}" id="stat-bar-${stat}" style="width:0%"></div>
       </div>
-      <div class="stat-tier">${tier}</div>
+      <div class="stat-tier">${statLabel(value)}</div>
     </div>
   `;
 }
