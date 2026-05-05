@@ -65,13 +65,13 @@ alter table quests add column if not exists description text;
 alter table quests add column if not exists deadline date;
 alter table quests add column if not exists frequency text not null default 'daily' check (frequency in ('daily','weekly'));
 
+-- Migrate v1 'career' rows to 'work' BEFORE applying the constraint
+update quests set category = 'work' where category = 'career';
+
 -- Refresh category constraint to include all v2 values
 alter table quests drop constraint if exists quests_category_check;
 alter table quests add constraint quests_category_check
   check (category in ('health','mind','work','finance','relationships'));
-
--- Migrate v1 'career' rows to 'work'
-update quests set category = 'work' where category = 'career';
 
 alter table quests enable row level security;
 drop policy if exists "Users can view own quests"   on quests;
