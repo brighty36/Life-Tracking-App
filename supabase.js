@@ -9,31 +9,7 @@ const SUPABASE_ANON = window.ENV_SUPABASE_ANON || '';
 
 export const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// ─── AUTH ────────────────────────────────────────────────────────────────────
-
-export async function sendMagicLink(email) {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin },
-  });
-  if (error) throw error;
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export function onAuthStateChange(callback) {
-  return supabase.auth.onAuthStateChange((_event, session) => callback(session));
-}
-
-export async function getSession() {
-  const { data } = await supabase.auth.getSession();
-  return data.session;
-}
-
-// ─── FIRST-LOGIN SEED ────────────────────────────────────────────────────────
+// ─── PROFILE MANAGEMENT ──────────────────────────────────────────────────────
 
 const DEFAULT_REWARDS = [
   { title: 'Takeaway',     description: 'Order your favourite food',   tier: 'small',     xp_cost: 100  },
@@ -44,39 +20,48 @@ const DEFAULT_REWARDS = [
   { title: 'Holiday',      description: 'A proper holiday abroad',     tier: 'legendary', xp_cost: 5000 },
 ];
 
-export async function seedNewUser(userId) {
-  // Profile
-  const { error: pe } = await supabase.from('profiles').insert({
-    user_id: userId, username: 'Adventurer', character_class: 'Novice',
-    avatar: '⚔️', level: 1, xp: 0, xp_to_next_level: 100,
-  });
-  if (pe && pe.code !== '23505') throw pe;
+export async function getAllProfiles() {
+  const { data, error } = await supabase
+    .from('profiles').select('*').order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+}
 
-  // Stats (all five skills at 25)
+export async function createProfile(username, avatar) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ username, avatar, character_class: 'Novice', level: 1, xp: 0, xp_to_next_level: 100 })
+    .select().single();
+  if (error) throw error;
+
+  await seedNewProfile(data.id);
+  return data;
+}
+
+async function seedNewProfile(profileId) {
   const { error: se } = await supabase.from('stats').insert({
-    user_id: userId,
+    user_id: profileId,
     health: 25, intellect: 25, work: 25, wealth: 25, relationships: 25,
   });
   if (se && se.code !== '23505') throw se;
 
-  // Rewards
   const { error: re } = await supabase.from('rewards')
-    .insert(DEFAULT_REWARDS.map(r => ({ ...r, user_id: userId })));
+    .insert(DEFAULT_REWARDS.map(r => ({ ...r, user_id: profileId })));
   if (re && re.code !== '23505') throw re;
 }
 
 // ─── PROFILE ─────────────────────────────────────────────────────────────────
 
-export async function getProfile(userId) {
+export async function getProfile(profileId) {
   const { data, error } = await supabase
-    .from('profiles').select('*').eq('user_id', userId).single();
+    .from('profiles').select('*').eq('id', profileId).single();
   if (error) throw error;
   return data;
 }
 
-export async function updateProfile(userId, updates) {
+export async function updateProfile(profileId, updates) {
   const { data, error } = await supabase
-    .from('profiles').update(updates).eq('user_id', userId).select().single();
+    .from('profiles').update(updates).eq('id', profileId).select().single();
   if (error) throw error;
   return data;
 }
@@ -135,7 +120,6 @@ export async function deleteQuest(questId) {
 export async function completeQuest(userId, quest) {
   const today = new Date().toISOString().split('T')[0];
 
-  // Streak: daily = yesterday, weekly = last week same weekday range
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const lastWeek  = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
   let newStreak;
@@ -238,7 +222,6 @@ export async function deleteReward(rewardId) {
 export async function redeemReward(userId, reward) {
   const profile = await getProfile(userId);
 
-  // Calculate total banked XP
   let bankXp = profile.xp;
   for (let l = 1; l < profile.level; l++) bankXp += xpForLevel(l);
   if (bankXp < reward.xp_cost) throw new Error('Not enough XP');
@@ -305,9 +288,8 @@ export async function getReflectionHistory(userId, limit = 30) {
 // ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 
 export async function getTransactions(userId, year, month) {
-  // Build date range for the requested month
   const from = `${year}-${String(month).padStart(2, '0')}-01`;
-  const to   = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0]; // last day, UTC-safe
+  const to   = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
 
   const { data, error } = await supabase
     .from('transactions')

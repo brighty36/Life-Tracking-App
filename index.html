@@ -22,26 +22,38 @@
   <div id="confetti-container"></div>
   <div id="toast-container"></div>
 
-  <!-- ─── AUTH SCREEN ─────────────────────────────────────────────────────── -->
-  <div id="auth-screen">
-    <div class="auth-card">
-      <div class="auth-logo">⚔️</div>
-      <h1 class="auth-title">Life RPG</h1>
-      <p class="auth-subtitle">Gamify your life — earn XP for real-world achievements</p>
+  <!-- ─── PROFILE SELECTOR SCREEN ──────────────────────────────────────────── -->
+  <div id="profile-screen">
+    <div class="profile-selector">
+      <div class="profile-selector-logo">⚔️</div>
+      <h1 class="profile-selector-title">Life RPG</h1>
+      <p class="profile-selector-subtitle">Choose your adventurer</p>
 
-      <form id="email-form">
+      <div class="profile-cards" id="profile-cards">
+        <div class="loading-spinner"></div>
+      </div>
+
+      <button class="btn btn-gold profile-new-btn" id="new-profile-btn">+ New Profile</button>
+    </div>
+
+    <!-- New profile modal -->
+    <div class="modal-overlay hidden" id="new-profile-modal">
+      <div class="modal">
+        <h3 class="modal-title">Create Profile</h3>
         <input
-          id="email-input"
-          class="input auth-input"
-          type="email"
-          placeholder="your@email.com"
-          autocomplete="email"
-          required
+          class="input"
+          id="new-profile-name"
+          placeholder="Enter your name"
+          maxlength="30"
+          autocomplete="off"
         />
-        <button type="submit" class="btn btn-gold auth-btn">Send Magic Link</button>
-      </form>
-
-      <p id="auth-message" class="auth-message"></p>
+        <p class="modal-body">Pick an avatar:</p>
+        <div class="avatar-grid" id="new-profile-avatar-grid"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="cancel-new-profile">Cancel</button>
+          <button class="btn btn-primary" id="confirm-new-profile">Create</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -65,7 +77,7 @@
 
       <div class="header-actions">
         <button id="theme-toggle" title="Toggle theme">☀️</button>
-        <button id="sign-out-btn" title="Sign out">Sign out</button>
+        <button id="switch-profile-btn" title="Switch profile">Switch Profile</button>
       </div>
     </header>
 
