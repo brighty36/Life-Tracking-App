@@ -3,7 +3,6 @@
 import { getAllProfiles, createProfile, getProfile } from './supabase.js';
 import { renderCharacter  } from './screens/character.js';
 import { renderQuests     } from './screens/quests.js';
-import { renderObjectives } from './screens/objectives.js';
 import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
 import { renderReflection } from './screens/reflection.js';
@@ -27,7 +26,7 @@ let currentProfile = null;
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
-const SCREENS = ['character', 'quests', 'objectives', 'rewards', 'journal', 'reflection', 'budget'];
+const SCREENS = ['character', 'quests', 'rewards', 'journal', 'reflection', 'budget'];
 
 async function navigateTo(screen) {
   if (!SCREENS.includes(screen)) screen = 'character';
@@ -44,7 +43,6 @@ async function navigateTo(screen) {
     switch (screen) {
       case 'character':   await renderCharacter(currentUserId, content); break;
       case 'quests':      await renderQuests(currentUserId, content, handleXPUpdate); break;
-      case 'objectives':  await renderObjectives(currentUserId, content); break;
       case 'rewards':     await renderRewards(currentUserId, content, handleXPUpdate); break;
       case 'journal':     await renderJournal(currentUserId, content); break;
       case 'reflection':  await renderReflection(currentUserId, content); break;
