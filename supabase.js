@@ -297,6 +297,51 @@ export async function getReflectionHistory(userId, limit = 30) {
   return data;
 }
 
+// ─── TRANSACTIONS ────────────────────────────────────────────────────────────
+
+export async function getTransactions(userId, year, month) {
+  // Build date range for the requested month
+  const from = `${year}-${String(month).padStart(2, '0')}-01`;
+  const to   = new Date(year, month, 0).toISOString().split('T')[0]; // last day
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', from)
+    .lte('date', to)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function createTransaction(userId, tx) {
+  const { data, error } = await supabase
+    .from('transactions')
+    .insert({ ...tx, user_id: userId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTransaction(txId, updates) {
+  const { data, error } = await supabase
+    .from('transactions')
+    .update(updates)
+    .eq('id', txId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTransaction(txId) {
+  const { error } = await supabase.from('transactions').delete().eq('id', txId);
+  if (error) throw error;
+}
+
 // ─── ACTIVITY LOG ────────────────────────────────────────────────────────────
 
 export async function getActivityLog(userId, limit = 50) {

@@ -195,10 +195,33 @@ exception when undefined_column then null; end $$;
 alter table stats add column if not exists relationships integer not null default 25
   check (relationships between 0 and 100);
 
+-- ─── TRANSACTIONS ────────────────────────────────────────────────────────────
+create table if not exists transactions (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  title       text not null,
+  amount      numeric(10,2) not null check (amount > 0),
+  type        text not null check (type in ('income','expense')),
+  category    text not null,
+  date        date not null default current_date,
+  created_at  timestamptz not null default now()
+);
+
+alter table transactions enable row level security;
+drop policy if exists "Users can view own transactions"   on transactions;
+drop policy if exists "Users can insert own transactions" on transactions;
+drop policy if exists "Users can update own transactions" on transactions;
+drop policy if exists "Users can delete own transactions" on transactions;
+create policy "Users can view own transactions"   on transactions for select using (auth.uid() = user_id);
+create policy "Users can insert own transactions" on transactions for insert with check (auth.uid() = user_id);
+create policy "Users can update own transactions" on transactions for update using (auth.uid() = user_id);
+create policy "Users can delete own transactions" on transactions for delete using (auth.uid() = user_id);
+
 -- ─── INDEXES ─────────────────────────────────────────────────────────────────
 create index if not exists quests_user_id_idx        on quests(user_id);
 create index if not exists objectives_user_id_idx    on objectives(user_id);
 create index if not exists rewards_user_id_idx       on rewards(user_id);
 create index if not exists redemptions_user_id_idx   on redemptions(user_id);
 create index if not exists activity_log_user_id_idx  on activity_log(user_id, created_at desc);
-create index if not exists reflections_user_date_idx on reflections(user_id, date desc);
+create index if not exists reflections_user_date_idx    on reflections(user_id, date desc);
+create index if not exists transactions_user_date_idx   on transactions(user_id, date desc);
