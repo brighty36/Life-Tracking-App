@@ -27,6 +27,7 @@ export async function renderCharacter(userId, container) {
           <div class="character-class gold">${profile.character_class}</div>
           <div class="level-badge">Level ${profile.level}</div>
         </div>
+        <button class="btn btn-ghost switch-profile-btn" onclick="window.switchProfile()">Switch Profile</button>
       </div>
 
       <div class="xp-section card">

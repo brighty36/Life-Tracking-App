@@ -1,6 +1,6 @@
-// Main app — routing, auth state, nav
+// Main app — routing, profile selection, nav
 
-import { supabase, onAuthStateChange, sendMagicLink, signOut, seedNewUser, getProfile } from './supabase.js';
+import { getAllProfiles, createProfile, getProfile } from './supabase.js';
 import { renderCharacter  } from './screens/character.js';
 import { renderQuests     } from './screens/quests.js';
 import { renderObjectives } from './screens/objectives.js';
@@ -8,7 +8,7 @@ import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
 import { renderReflection } from './screens/reflection.js';
 import { renderBudget     } from './screens/budget.js';
-import { xpPercent, classForLevel } from './utils/xp.js';
+import { xpPercent } from './utils/xp.js';
 import { showToast, animateXPBar } from './utils/animations.js';
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
@@ -18,6 +18,8 @@ const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
+
+const PROFILE_KEY = 'life-rpg-profile-id';
 
 let currentUserId  = null;
 let currentScreen  = 'character';
@@ -73,40 +75,83 @@ function updateHeaderXP(profile) {
   if (barEl)  animateXPBar(barEl, parseFloat(barEl.style.width) || 0, pct, 600);
 }
 
-// ─── AUTH ────────────────────────────────────────────────────────────────────
+// ─── PROFILE SELECTOR ────────────────────────────────────────────────────────
 
-function showAuthScreen() {
-  document.getElementById('auth-screen').classList.remove('hidden');
+function showProfileScreen() {
+  document.getElementById('profile-screen').classList.remove('hidden');
   document.getElementById('app-shell').classList.add('hidden');
+  loadProfileCards();
 }
 
 function showAppShell() {
-  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('profile-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
 }
 
-async function initUser(userId) {
-  currentUserId = userId;
-
-  try { await seedNewUser(userId); }
-  catch (err) { console.warn('Seed skipped:', err.message); }
-
+async function loadProfileCards() {
+  const container = document.getElementById('profile-cards');
+  container.innerHTML = `<div class="loading-spinner"></div>`;
   try {
-    currentProfile = await getProfile(userId);
-    updateHeaderXP(currentProfile);
-  } catch (err) { console.error('Failed to load profile:', err); }
+    const profiles = await getAllProfiles();
+    if (profiles.length === 0) {
+      container.innerHTML = `<p class="profile-empty">No profiles yet — create one below!</p>`;
+    } else {
+      container.innerHTML = profiles.map(p => `
+        <button class="profile-card" data-id="${p.id}">
+          <span class="profile-card-avatar">${p.avatar}</span>
+          <span class="profile-card-name">${p.username}</span>
+          <span class="profile-card-class">${p.character_class}</span>
+          <span class="profile-card-level">Lv.${p.level}</span>
+        </button>
+      `).join('');
+      container.querySelectorAll('.profile-card').forEach(card => {
+        card.addEventListener('click', () => selectProfile(card.dataset.id));
+      });
+    }
+  } catch (err) {
+    console.error('Failed to load profiles:', err);
+    container.innerHTML = `<p class="error-state">Failed to load profiles.</p>`;
+  }
+}
 
+async function selectProfile(profileId) {
+  try {
+    currentProfile = await getProfile(profileId);
+  } catch (err) {
+    console.error('Profile not found:', err);
+    localStorage.removeItem(PROFILE_KEY);
+    showProfileScreen();
+    return;
+  }
+  localStorage.setItem(PROFILE_KEY, profileId);
+  currentUserId = profileId;
+  updateHeaderXP(currentProfile);
   showAppShell();
   navigateTo('character');
 }
 
+// Exposed globally so character screen can trigger it
+window.switchProfile = function () {
+  currentUserId  = null;
+  currentProfile = null;
+  localStorage.removeItem(PROFILE_KEY);
+  showProfileScreen();
+};
+
+// ─── AVATARS ─────────────────────────────────────────────────────────────────
+
+const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝','🐉','🌟','🦊','🐺','🦁','👑','💎','🔥','⚡','🌙','☀️','🎭'];
+
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+
+  // Nav buttons
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
   });
 
+  // Theme toggle
   const themeBtn = document.getElementById('theme-toggle');
   themeBtn.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
@@ -117,40 +162,59 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-  document.getElementById('sign-out-btn').addEventListener('click', async () => {
-    await signOut();
+  // Switch profile (header button)
+  document.getElementById('switch-profile-btn').addEventListener('click', () => window.switchProfile());
+
+  // ── New profile modal ──────────────────────────────────────────────────────
+
+  let selectedAvatar = AVATARS[0];
+
+  document.getElementById('new-profile-btn').addEventListener('click', () => {
+    selectedAvatar = AVATARS[0];
+    document.getElementById('new-profile-avatar-grid').innerHTML = AVATARS.map(a =>
+      `<button class="avatar-option ${a === selectedAvatar ? 'selected' : ''}" data-avatar="${a}">${a}</button>`
+    ).join('');
+    document.getElementById('new-profile-name').value = '';
+    document.getElementById('new-profile-modal').classList.remove('hidden');
+    document.getElementById('new-profile-name').focus();
   });
 
-  const emailForm  = document.getElementById('email-form');
-  const emailInput = document.getElementById('email-input');
-  const authMsg    = document.getElementById('auth-message');
+  document.getElementById('cancel-new-profile').addEventListener('click', () => {
+    document.getElementById('new-profile-modal').classList.add('hidden');
+  });
 
-  emailForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = emailInput.value.trim();
-    if (!email) return;
+  document.getElementById('new-profile-avatar-grid').addEventListener('click', (e) => {
+    const btn = e.target.closest('.avatar-option');
+    if (!btn) return;
+    selectedAvatar = btn.dataset.avatar;
+    document.querySelectorAll('#new-profile-avatar-grid .avatar-option').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
 
-    const submitBtn = emailForm.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Sending…';
-    authMsg.textContent = '';
-
+  document.getElementById('confirm-new-profile').addEventListener('click', async () => {
+    const name    = document.getElementById('new-profile-name').value.trim() || 'Adventurer';
+    const saveBtn = document.getElementById('confirm-new-profile');
+    saveBtn.disabled    = true;
+    saveBtn.textContent = 'Creating…';
     try {
-      await sendMagicLink(email);
-      authMsg.textContent = '✅ Check your email for a magic link!';
-      authMsg.className = 'auth-message success';
-      emailInput.value = '';
+      const profile = await createProfile(name, selectedAvatar);
+      document.getElementById('new-profile-modal').classList.add('hidden');
+      await selectProfile(profile.id);
     } catch (err) {
-      authMsg.textContent = '❌ ' + (err.message || 'Failed to send link');
-      authMsg.className = 'auth-message error';
+      console.error('Failed to create profile:', err);
+      showToast('Failed to create profile', 'error');
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Send Magic Link';
+      saveBtn.disabled    = false;
+      saveBtn.textContent = 'Create';
     }
   });
 
-  onAuthStateChange(async (session) => {
-    if (session?.user) { await initUser(session.user.id); }
-    else { currentUserId = null; showAuthScreen(); }
-  });
+  // ── Auto-resume last session ───────────────────────────────────────────────
+
+  const savedId = localStorage.getItem(PROFILE_KEY);
+  if (savedId) {
+    selectProfile(savedId);
+  } else {
+    showProfileScreen();
+  }
 });
