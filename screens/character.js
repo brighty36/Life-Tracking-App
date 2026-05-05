@@ -43,11 +43,11 @@ export async function renderCharacter(userId, container) {
       </div>
 
       <div class="stats-grid">
-        ${renderStatCard('health',        '❤️',  'Health',        stats.health,        'stat-red')}
-        ${renderStatCard('intellect',     '🧠',  'Intellect',     stats.intellect,     'stat-purple')}
-        ${renderStatCard('work',          '💼',  'Work',          stats.work,          'stat-blue')}
-        ${renderStatCard('wealth',        '💰',  'Wealth',        stats.wealth,        'stat-amber')}
-        ${renderStatCard('relationships', '🤝',  'Relationships', stats.relationships, 'stat-green')}
+        ${renderStatCard('health',        '❤️',  'Health',        stats.health        ?? stats.strength ?? 0, 'stat-red')}
+        ${renderStatCard('intellect',     '🧠',  'Intellect',     stats.intellect     ?? 0,                   'stat-purple')}
+        ${renderStatCard('work',          '💼',  'Work',          stats.work          ?? stats.ambition ?? 0, 'stat-blue')}
+        ${renderStatCard('wealth',        '💰',  'Wealth',        stats.wealth        ?? 0,                   'stat-amber')}
+        ${renderStatCard('relationships', '🤝',  'Relationships', stats.relationships ?? 0,                   'stat-green')}
       </div>
     </div>
 
@@ -82,10 +82,17 @@ export async function renderCharacter(userId, container) {
   });
 
   // Animate stat bars
+  const resolvedStats = {
+    health:        stats.health        ?? stats.strength ?? 0,
+    intellect:     stats.intellect     ?? 0,
+    work:          stats.work          ?? stats.ambition ?? 0,
+    wealth:        stats.wealth        ?? 0,
+    relationships: stats.relationships ?? 0,
+  };
   requestAnimationFrame(() => {
     ['health','intellect','work','wealth','relationships'].forEach(stat => {
       const bar = document.getElementById(`stat-bar-${stat}`);
-      if (bar) animateXPBar(bar, 0, stats[stat], 600);
+      if (bar) animateXPBar(bar, 0, resolvedStats[stat], 600);
     });
   });
 
