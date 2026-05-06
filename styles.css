@@ -1142,3 +1142,44 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .cal-day:hover   { background: var(--bg-secondary); color: var(--text-primary); }
 .cal-today       { color: var(--gold); font-weight: 700; }
 .cal-selected    { background: var(--indigo) !important; color: #fff !important; font-weight: 700; }
+
+/* ─── ACTIVITY LINKING ───────────────────────────────────────────────────────── */
+.link-parent-tag {
+  font-size: 0.72rem; color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+.link-count-badge {
+  display: inline-flex; align-items: center;
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.1rem 0.45rem; border-radius: 999px;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.linked-tasks-list {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--border-light);
+}
+.linked-task-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; color: var(--text-secondary);
+}
+.linked-task-item.done { color: var(--text-muted); text-decoration: line-through; }
+.linked-task-dot { font-size: 0.7rem; flex-shrink: 0; color: var(--text-muted); }
+.linked-task-item.done .linked-task-dot { color: var(--success); }
+.linked-task-title { flex: 1; }
+.linked-task-xp { font-size: 0.7rem; font-weight: 600; flex-shrink: 0; }
+
+/* ─── JOURNAL DELETE ─────────────────────────────────────────────────────────── */
+.journal-entry { display: flex; align-items: flex-start; gap: 0.75rem; }
+.journal-entry .delete-entry-btn {
+  flex-shrink: 0; opacity: 0; transition: opacity var(--transition);
+  margin-left: auto;
+}
+.journal-entry:hover .delete-entry-btn { opacity: 1; }

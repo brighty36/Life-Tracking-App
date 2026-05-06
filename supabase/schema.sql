@@ -66,6 +66,10 @@ alter table quests add constraint quests_difficulty_check
 
 alter table quests disable row level security;
 
+-- v5: parent linking (Task → Project, Project/Task → Quest)
+alter table quests add column if not exists parent_quest_id uuid references quests(id) on delete set null;
+alter table quests add column if not exists objective_id    uuid references objectives(id) on delete set null;
+
 -- ─── OBJECTIVES ──────────────────────────────────────────────────────────────
 create table if not exists objectives (
   id          uuid primary key default uuid_generate_v4(),
@@ -113,6 +117,7 @@ create table if not exists reflections (
   user_id       uuid not null,
   date          date not null,
   things_learnt text,
+  grateful_for  text,
   proud_of      text,
   troubled_by   text,
   mood          integer check (mood between 1 and 5),
@@ -121,6 +126,9 @@ create table if not exists reflections (
 );
 
 alter table reflections disable row level security;
+
+-- v5: grateful_for column
+alter table reflections add column if not exists grateful_for text;
 
 -- ─── ACTIVITY LOG ────────────────────────────────────────────────────────────
 create table if not exists activity_log (

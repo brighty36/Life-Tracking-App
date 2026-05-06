@@ -85,6 +85,17 @@ function render(userId, container, todayStr, existing, history) {
           >${existing?.troubled_by || ''}</textarea>
         </div>
 
+        <!-- Grateful for -->
+        <div class="reflection-field">
+          <label class="reflection-label">🙏 Things I am grateful for</label>
+          <textarea
+            class="input textarea reflection-textarea"
+            id="grateful-for"
+            placeholder="What are you thankful for today?"
+            rows="3"
+          >${existing?.grateful_for || ''}</textarea>
+        </div>
+
         <div class="reflection-actions">
           <button class="btn btn-primary" id="save-reflection-btn">
             ${existing ? '✓ Update Reflection' : 'Save Reflection'}
@@ -123,6 +134,7 @@ function render(userId, container, todayStr, existing, history) {
     const things_learnt = document.getElementById('things-learnt').value.trim() || null;
     const proud_of      = document.getElementById('proud-of').value.trim() || null;
     const troubled_by   = document.getElementById('troubled-by').value.trim() || null;
+    const grateful_for  = document.getElementById('grateful-for').value.trim() || null;
     const mood          = selectedMood || null;
 
     const saveBtn = document.getElementById('save-reflection-btn');
@@ -131,7 +143,7 @@ function render(userId, container, todayStr, existing, history) {
 
     try {
       const saved = await upsertReflection(userId, {
-        date: todayStr, things_learnt, proud_of, troubled_by, mood,
+        date: todayStr, things_learnt, proud_of, troubled_by, grateful_for, mood,
       });
       showToast('Reflection saved! ✨', 'success');
 
@@ -173,6 +185,11 @@ function renderHistoryCard(reflection) {
           <div class="history-section">
             <div class="history-section-label">💭 Troubled by</div>
             <p>${escapeHtml(reflection.troubled_by)}</p>
+          </div>` : ''}
+        ${reflection.grateful_for ? `
+          <div class="history-section">
+            <div class="history-section-label">🙏 Grateful for</div>
+            <p>${escapeHtml(reflection.grateful_for)}</p>
           </div>` : ''}
       </div>
     </details>
