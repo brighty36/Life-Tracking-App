@@ -2,6 +2,7 @@
 
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction } from '../supabase.js';
 import { showToast } from '../utils/animations.js';
+import { attachCalendar } from '../utils/calendar.js';
 
 const CURRENCY = '£';
 
@@ -232,6 +233,8 @@ function render(transactions, state, container, userId) {
     document.getElementById('tx-modal').classList.remove('hidden');
     document.getElementById('tx-title').focus();
   }
+
+  attachCalendar(document.getElementById('tx-date'));
 
   document.getElementById('add-tx-btn').addEventListener('click', () => openTxModal());
   document.getElementById('close-tx-modal').addEventListener('click', () => {

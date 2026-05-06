@@ -1,16 +1,20 @@
 // XP calculations and level-up logic
 
 export const XP_BY_DIFFICULTY = {
-  easy: 25,
-  medium: 50,
-  hard: 100,
+  fun:       0,
+  quick:     5,
+  easy:      25,
+  medium:    50,
+  hard:      100,
   legendary: 250,
 };
 
 export const STAT_BOOST_BY_DIFFICULTY = {
-  easy: 1,
-  medium: 2,
-  hard: 3,
+  fun:       0,
+  quick:     0,
+  easy:      1,
+  medium:    2,
+  hard:      3,
   legendary: 5,
 };
 
