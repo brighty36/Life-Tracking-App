@@ -44,7 +44,7 @@ async function navigateTo(screen) {
       case 'character':   await renderCharacter(currentUserId, content); break;
       case 'quests':      await renderQuests(currentUserId, content, handleXPUpdate); break;
       case 'rewards':     await renderRewards(currentUserId, content, handleXPUpdate); break;
-      case 'journal':     await renderJournal(currentUserId, content); break;
+      case 'journal':     await renderJournal(currentUserId, content, handleXPUpdate); break;
       case 'reflection':  await renderReflection(currentUserId, content); break;
       case 'budget':      await renderBudget(currentUserId, content); break;
     }

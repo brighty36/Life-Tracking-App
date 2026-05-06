@@ -347,7 +347,55 @@ export async function logActivity(userId, entry_type, description, xp_delta = 0)
   if (error) console.error('Activity log error:', error);
 }
 
+/**
+ * Apply a signed XP change to a profile, handling level ups and downs.
+ * Positive xpChange → gain XP. Negative → lose XP (can de-level, floor at lv1 xp=0).
+ * Returns the updated profile.
+ */
+async function adjustProfileXP(userId, xpChange) {
+  const profile = await getProfile(userId);
+  let { level, xp } = profile;
+
+  if (xpChange > 0) {
+    const result = applyXP(level, xp, profile.xp_to_next_level, xpChange);
+    level = result.newLevel;
+    xp    = result.newXp;
+  } else if (xpChange < 0) {
+    let remaining = -xpChange;
+    if (xp >= remaining) {
+      xp -= remaining;
+    } else {
+      remaining -= xp;
+      xp = 0;
+      while (remaining > 0 && level > 1) {
+        level -= 1;
+        const cap = xpForLevel(level);
+        if (cap >= remaining) { xp = cap - remaining; remaining = 0; }
+        else { remaining -= cap; }
+      }
+      // Floor at level 1, xp 0 — can't go below zero
+    }
+  } else {
+    return null;
+  }
+
+  const newClass  = classForLevel(level);
+  const xpToNext  = xpForLevel(level);
+  return updateProfile(userId, { level, xp, xp_to_next_level: xpToNext, character_class: newClass });
+}
+
 export async function deleteActivityLog(entryId) {
+  const { data: entry, error: fetchErr } = await supabase
+    .from('activity_log').select('user_id, xp_delta').eq('id', entryId).single();
+  if (fetchErr) throw fetchErr;
+
+  // Reverse the XP change on the profile before deleting the record
+  const updatedProfile = entry.xp_delta !== 0
+    ? await adjustProfileXP(entry.user_id, -entry.xp_delta)
+    : null;
+
   const { error } = await supabase.from('activity_log').delete().eq('id', entryId);
   if (error) throw error;
+
+  return updatedProfile; // null when xp_delta was 0
 }
