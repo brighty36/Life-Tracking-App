@@ -182,6 +182,38 @@ create index if not exists activity_log_user_id_idx  on activity_log(user_id, cr
 create index if not exists reflections_user_date_idx    on reflections(user_id, date desc);
 create index if not exists transactions_user_date_idx   on transactions(user_id, date desc);
 
+-- ─── v6: XP REFACTOR (no levelling, daily + lifetime XP, monthly stat resets) ──
+
+-- New profile XP columns
+alter table profiles add column if not exists lifetime_xp     integer not null default 0;
+alter table profiles add column if not exists daily_xp        integer not null default 0;
+alter table profiles add column if not exists daily_xp_date   date;
+alter table profiles add column if not exists stats_reset_month text not null default '';
+
+-- Stats now start at 0 each month
+alter table stats alter column health        set default 0;
+alter table stats alter column intellect     set default 0;
+alter table stats alter column work          set default 0;
+alter table stats alter column wealth        set default 0;
+alter table stats alter column relationships set default 0;
+
+-- Monthly XP earned per stat category
+create table if not exists monthly_category_xp (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null,
+  year_month text not null,
+  stat_key   text not null,
+  xp_total   integer not null default 0,
+  unique(user_id, year_month, stat_key)
+);
+alter table monthly_category_xp disable row level security;
+create index if not exists monthly_category_xp_user_idx on monthly_category_xp(user_id, year_month);
+
+-- Expand entry_type to include monthly_reset
+alter table activity_log drop constraint if exists activity_log_entry_type_check;
+alter table activity_log add constraint activity_log_entry_type_check
+  check (entry_type in ('quest_complete','reward_redeemed','level_up','stat_boost','reflection','monthly_reset'));
+
 -- ─── MIGRATION: drop auth FK constraints if upgrading from v2 ─────────────────
 -- Run these manually in the Supabase SQL editor if upgrading an existing database:
 --

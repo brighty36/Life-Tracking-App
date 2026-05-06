@@ -2,7 +2,6 @@
 
 import { getRewards, createReward, deleteReward, redeemReward, getProfile } from '../supabase.js';
 import { showToast, launchConfetti } from '../utils/animations.js';
-import { xpPercent } from '../utils/xp.js';
 
 const TIER_ICONS = { small: '🥉', medium: '🥈', large: '🥇', legendary: '👑' };
 const TIER_ORDER = { small: 0, medium: 1, large: 2, legendary: 3 };
@@ -14,17 +13,7 @@ export async function renderRewards(userId, container, onXPUpdate) {
 }
 
 function bankXP(profile) {
-  // Total XP earned = sum of all previous levels + current XP
-  // We store current level + current-level xp, so bank = xp (we deduct across levels in supabase.js)
-  // For display purposes, show total accumulated = previous levels + current
-  let total = profile.xp;
-  // The supabase.js redeemReward handles cross-level deduction; here we just show current xp pool
-  // Actually let's compute true bank: sum xpForLevel for each completed level
-  // We import xpForLevel lazily to avoid circular — use the formula directly
-  for (let l = 1; l < profile.level; l++) {
-    total += Math.floor(100 * Math.pow(1.2, l - 1));
-  }
-  return total;
+  return profile.lifetime_xp || 0;
 }
 
 function render(rewards, profile, container, userId, onXPUpdate) {
@@ -169,9 +158,7 @@ function render(rewards, profile, container, userId, onXPUpdate) {
     btn.disabled = true;
     try {
       const updatedProfile = await redeemReward(userId, redeemingReward);
-      profile.level  = updatedProfile.level;
-      profile.xp     = updatedProfile.xp;
-      profile.xp_to_next_level = updatedProfile.xp_to_next_level;
+      profile.lifetime_xp = updatedProfile.lifetime_xp;
       if (onXPUpdate) onXPUpdate(updatedProfile);
       document.getElementById('redeem-modal').classList.add('hidden');
       launchConfetti(150);

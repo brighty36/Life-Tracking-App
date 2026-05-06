@@ -1,7 +1,7 @@
 // Character screen
 
-import { getProfile, getStats, updateProfile } from '../supabase.js';
-import { xpPercent, statLabel } from '../utils/xp.js';
+import { getProfile, getStats, updateProfile, checkAndResetMonth, getMonthlyCategoryXP } from '../supabase.js';
+import { statLabel, getEffectiveDailyXP } from '../utils/xp.js';
 import { animateXPBar, showToast } from '../utils/animations.js';
 
 const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝','🐉','🌟','🦊','🐺','🦁','👑','💎','🔥','⚡','🌙','☀️','🎭'];
@@ -9,8 +9,25 @@ const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝'
 export async function renderCharacter(userId, container) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
 
-  const [profile, stats] = await Promise.all([getProfile(userId), getStats(userId)]);
-  const xpPct = xpPercent(profile.xp, profile.xp_to_next_level);
+  await checkAndResetMonth(userId);
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [profile, stats, monthlyXP] = await Promise.all([
+    getProfile(userId),
+    getStats(userId),
+    getMonthlyCategoryXP(userId, currentMonth),
+  ]);
+
+  const dailyXP    = getEffectiveDailyXP(profile);
+  const lifetimeXP = profile.lifetime_xp || 0;
+
+  const resolvedStats = {
+    health:        stats.health        ?? 0,
+    intellect:     stats.intellect     ?? 0,
+    work:          stats.work          ?? stats.ambition ?? 0,
+    wealth:        stats.wealth        ?? 0,
+    relationships: stats.relationships ?? 0,
+  };
 
   container.innerHTML = `
     <div class="character-screen">
@@ -24,31 +41,30 @@ export async function renderCharacter(userId, container) {
             <span class="character-name" id="char-name">${profile.username}</span>
             <button class="icon-btn" id="edit-name-btn" title="Edit name">✏️</button>
           </div>
-          <div class="character-class gold">${profile.character_class}</div>
-          <div class="level-badge">Level ${profile.level}</div>
         </div>
         <button class="btn btn-ghost switch-profile-btn" onclick="window.switchProfile()">Switch Profile</button>
       </div>
 
       <div class="xp-section card">
-        <div class="xp-header">
-          <span class="label">Experience Points</span>
-          <span class="xp-numbers gold">${profile.xp} / ${profile.xp_to_next_level} XP</span>
-        </div>
-        <div class="xp-bar-track">
-          <div class="xp-bar-fill" id="xp-bar" style="width:0%"></div>
-        </div>
-        <div class="xp-footer">
-          <span>${profile.xp_to_next_level - profile.xp} XP to next level</span>
+        <div class="xp-dual-row">
+          <div class="xp-block">
+            <span class="xp-block-label">Daily XP</span>
+            <span class="xp-block-value gold">${dailyXP.toLocaleString()}</span>
+          </div>
+          <div class="xp-block-divider"></div>
+          <div class="xp-block">
+            <span class="xp-block-label">Lifetime XP</span>
+            <span class="xp-block-value gold">${lifetimeXP.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
       <div class="stats-grid">
-        ${renderStatCard('health',        '❤️',  'Health',        stats.health        ?? stats.strength ?? 0, 'stat-red')}
-        ${renderStatCard('intellect',     '🧠',  'Intellect',     stats.intellect     ?? 0,                   'stat-purple')}
-        ${renderStatCard('work',          '💼',  'Work',          stats.work          ?? stats.ambition ?? 0, 'stat-blue')}
-        ${renderStatCard('wealth',        '💰',  'Wealth',        stats.wealth        ?? 0,                   'stat-amber')}
-        ${renderStatCard('relationships', '🤝',  'Relationships', stats.relationships ?? 0,                   'stat-green')}
+        ${renderStatCard('health',        '❤️',  'Health',        resolvedStats.health,        'stat-red',    monthlyXP.health        || 0)}
+        ${renderStatCard('intellect',     '🧠',  'Intellect',     resolvedStats.intellect,     'stat-purple', monthlyXP.intellect     || 0)}
+        ${renderStatCard('work',          '💼',  'Work',          resolvedStats.work,          'stat-blue',   monthlyXP.work          || 0)}
+        ${renderStatCard('wealth',        '💰',  'Wealth',        resolvedStats.wealth,        'stat-amber',  monthlyXP.wealth        || 0)}
+        ${renderStatCard('relationships', '🤝',  'Relationships', resolvedStats.relationships, 'stat-green',  monthlyXP.relationships || 0)}
       </div>
     </div>
 
@@ -76,20 +92,7 @@ export async function renderCharacter(userId, container) {
     </div>
   `;
 
-  // Animate XP bar
-  requestAnimationFrame(() => {
-    const bar = document.getElementById('xp-bar');
-    if (bar) animateXPBar(bar, 0, xpPct);
-  });
-
   // Animate stat bars
-  const resolvedStats = {
-    health:        stats.health        ?? stats.strength ?? 0,
-    intellect:     stats.intellect     ?? 0,
-    work:          stats.work          ?? stats.ambition ?? 0,
-    wealth:        stats.wealth        ?? 0,
-    relationships: stats.relationships ?? 0,
-  };
   requestAnimationFrame(() => {
     ['health','intellect','work','wealth','relationships'].forEach(stat => {
       const bar = document.getElementById(`stat-bar-${stat}`);
@@ -142,7 +145,7 @@ export async function renderCharacter(userId, container) {
   });
 }
 
-function renderStatCard(stat, icon, label, value, colorClass) {
+function renderStatCard(stat, icon, label, value, colorClass, monthlyXp) {
   return `
     <div class="stat-card card">
       <div class="stat-card-header">
@@ -154,6 +157,7 @@ function renderStatCard(stat, icon, label, value, colorClass) {
         <div class="stat-bar-fill ${colorClass}" id="stat-bar-${stat}" style="width:0%"></div>
       </div>
       <div class="stat-tier">${statLabel(value)}</div>
+      ${monthlyXp > 0 ? `<div class="stat-monthly-xp">${monthlyXp.toLocaleString()} XP this month</div>` : ''}
     </div>
   `;
 }
