@@ -726,7 +726,28 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .entry-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem; }
 .entry-type { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
 .entry-desc { font-size: 0.875rem; color: var(--text-primary); margin-bottom: 0.25rem; }
+.entry-footer { display: flex; align-items: center; gap: 0.75rem; }
 .entry-time { font-size: 0.72rem; color: var(--text-muted); }
+
+.btn-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 0.72rem; color: var(--purple-light); font-weight: 500;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.btn-link:hover { color: var(--gold); }
+
+/* Reflection detail modal */
+.reflection-detail-modal { max-width: 480px; max-height: 80vh; overflow-y: auto; }
+.reflection-detail-body  { display: flex; flex-direction: column; gap: 1rem; margin: 0.5rem 0 1rem; }
+.reflection-detail-mood  { font-size: 2rem; text-align: center; margin-bottom: 0.25rem; }
+.reflection-detail-section { }
+.reflection-detail-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem;
+}
+.reflection-detail-section p {
+  font-size: 0.9rem; color: var(--text-primary); line-height: 1.6; margin: 0;
+}
 
 /* ─── CONFETTI ──────────────────────────────────────────────────────────────── */
 #confetti-container {
