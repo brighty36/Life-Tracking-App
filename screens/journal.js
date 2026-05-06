@@ -10,13 +10,13 @@ const ENTRY_META = {
   stat_boost:      { icon: '📈',  label: 'Stat Boost',       color: 'blue'   },
 };
 
-export async function renderJournal(userId, container) {
+export async function renderJournal(userId, container, onXPUpdate) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
   const entries = await getActivityLog(userId, 100);
-  render(entries, container);
+  render(entries, container, onXPUpdate);
 }
 
-function render(entries, container) {
+function render(entries, container, onXPUpdate) {
   container.innerHTML = `
     <div class="journal-screen">
       <div class="screen-header">
@@ -63,11 +63,12 @@ function render(entries, container) {
   document.getElementById('confirm-delete-entry').addEventListener('click', async () => {
     if (!deletingEntryId) return;
     try {
-      await deleteActivityLog(deletingEntryId);
+      const updatedProfile = await deleteActivityLog(deletingEntryId);
       entries.splice(entries.findIndex(e => e.id === deletingEntryId), 1);
       document.getElementById('delete-entry-modal').classList.add('hidden');
       deletingEntryId = null;
-      render(entries, container);
+      if (updatedProfile && onXPUpdate) onXPUpdate(updatedProfile);
+      render(entries, container, onXPUpdate);
     } catch {
       showToast('Failed to remove entry', 'error');
     }
