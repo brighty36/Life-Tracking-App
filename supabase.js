@@ -267,10 +267,10 @@ export async function getReflection(userId, date) {
   return data;
 }
 
-export async function upsertReflection(userId, { date, things_learnt, proud_of, troubled_by, mood }) {
+export async function upsertReflection(userId, { date, things_learnt, proud_of, troubled_by, grateful_for, mood }) {
   const { data, error } = await supabase
     .from('reflections')
-    .upsert({ user_id: userId, date, things_learnt, proud_of, troubled_by, mood },
+    .upsert({ user_id: userId, date, things_learnt, proud_of, troubled_by, grateful_for, mood },
              { onConflict: 'user_id,date' })
     .select().single();
   if (error) throw error;
@@ -345,4 +345,9 @@ export async function logActivity(userId, entry_type, description, xp_delta = 0)
   const { error } = await supabase.from('activity_log')
     .insert({ user_id: userId, entry_type, description, xp_delta });
   if (error) console.error('Activity log error:', error);
+}
+
+export async function deleteActivityLog(entryId) {
+  const { error } = await supabase.from('activity_log').delete().eq('id', entryId);
+  if (error) throw error;
 }

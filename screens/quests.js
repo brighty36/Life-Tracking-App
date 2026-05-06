@@ -5,15 +5,12 @@ import { getQuests, createQuest, updateQuest, deleteQuest, completeQuest,
 import { showToast, showLevelUpBanner, showStatBoost } from '../utils/animations.js';
 import { attachCalendar, todayStr, endOfWeek } from '../utils/calendar.js';
 
-const DIFFICULTY_XP = { fun: 0, quick: 5, easy: 25, medium: 50, hard: 100, legendary: 250 };
+const DIFFICULTY_XP    = { fun: 0, quick: 5, easy: 25, medium: 50, hard: 100, legendary: 250 };
 const DIFFICULTY_ICONS = { fun: '🎉', quick: '⚡', easy: '🟢', medium: '🟡', hard: '🟠', legendary: '🔴' };
-const CATEGORY_ICONS = {
-  health: '❤️', mind: '🧠', work: '💼', finance: '💰', relationships: '🤝',
-};
+const CATEGORY_ICONS   = { health: '❤️', mind: '🧠', work: '💼', finance: '💰', relationships: '🤝' };
 const OBJ_CATEGORY_ICONS = { health: '💪', mind: '🧠', career: '🎯', finance: '💰' };
-const ALL_CATEGORIES = ['health','mind','work','finance','relationships'];
+const ALL_CATEGORIES   = ['health','mind','work','finance','relationships'];
 
-// Tab → DB frequency mapping
 const TAB_FREQ = { task: 'daily', project: 'weekly' };
 
 const PRESETS = [
@@ -24,21 +21,18 @@ const PRESETS = [
   { title: 'Do something nice for someone else', category: 'relationships', difficulty: 'easy',   description: 'Spread kindness today' },
 ];
 
-function isOverdue(quest) {
-  if (!quest.deadline) return false;
-  return quest.deadline < todayStr();
-}
+function isDone(quest) { return quest.last_completed === todayStr(); }
+function isOverdue(quest) { return !!quest.deadline && quest.deadline < todayStr(); }
 
 function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function renderCats(category) {
   if (!category) return '';
   return category.split(',').map(c => {
-    const key = c.trim();
-    return `<span class="quest-cat">${CATEGORY_ICONS[key] || '📋'} ${key}</span>`;
+    const k = c.trim();
+    return `<span class="quest-cat">${CATEGORY_ICONS[k] || '📋'} ${k}</span>`;
   }).join('');
 }
 
@@ -46,10 +40,7 @@ function renderCats(category) {
 
 export async function renderQuests(userId, container, onXPUpdate) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
-  const [quests, objectives] = await Promise.all([
-    getQuests(userId),
-    getObjectives(userId),
-  ]);
+  const [quests, objectives] = await Promise.all([getQuests(userId), getObjectives(userId)]);
   render(quests, objectives, container, userId, onXPUpdate, 'task');
 }
 
@@ -59,18 +50,20 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   const tasks    = quests.filter(q => q.frequency !== 'weekly');
   const projects = quests.filter(q => q.frequency === 'weekly');
 
-  const tabCount = {
-    task:     tasks.length,
-    project:  projects.length,
-    longterm: objectives.length,
-  };
+  // Build parent-child maps
+  const tasksByProject    = groupBy(tasks,    q => q.parent_quest_id);
+  const projectsByObj     = groupBy(projects, p => p.objective_id);
+  const projectMap        = Object.fromEntries(projects.map(p => [p.id, p]));
+  const objectiveMap      = Object.fromEntries(objectives.map(o => [o.id, o]));
+
+  const counts = { task: tasks.length, project: projects.length, longterm: objectives.length };
 
   container.innerHTML = `
     <div class="quests-screen">
       <div class="screen-header">
         <div>
           <h2 class="screen-title">Activity</h2>
-          <p class="screen-sub">${tabSubtitle(activeTab, tabCount)}</p>
+          <p class="screen-sub">${tabSubtitle(activeTab, counts)}</p>
         </div>
         <div class="quest-header-btns">
           ${activeTab !== 'longterm' ? `<button class="btn btn-ghost btn-sm" id="presets-btn">⚡ Presets</button>` : ''}
@@ -79,28 +72,34 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       </div>
 
       <div class="tab-row">
-        <button class="tab-btn ${activeTab === 'task'     ? 'active' : ''}" data-tab="task">
-          ✅ Tasks <span class="tab-count">${tabCount.task}</span>
+        <button class="tab-btn ${activeTab==='task'     ? 'active':''}" data-tab="task">
+          ✅ Tasks <span class="tab-count">${counts.task}</span>
         </button>
-        <button class="tab-btn ${activeTab === 'project'  ? 'active' : ''}" data-tab="project">
-          📋 Projects <span class="tab-count">${tabCount.project}</span>
+        <button class="tab-btn ${activeTab==='project'  ? 'active':''}" data-tab="project">
+          📋 Projects <span class="tab-count">${counts.project}</span>
         </button>
-        <button class="tab-btn ${activeTab === 'longterm' ? 'active' : ''}" data-tab="longterm">
-          🎯 Quests <span class="tab-count">${tabCount.longterm}</span>
+        <button class="tab-btn ${activeTab==='longterm' ? 'active':''}" data-tab="longterm">
+          🎯 Quests <span class="tab-count">${counts.longterm}</span>
         </button>
       </div>
 
-      ${activeTab !== 'longterm' ? `
+      ${activeTab === 'task' ? `
         <div class="quest-list" id="quest-list">
-          ${(activeTab === 'task' ? tasks : projects).length === 0
-            ? `<div class="empty-state">No ${activeTab === 'task' ? 'tasks' : 'projects'} yet.<br>Add one or pick a preset!</div>`
-            : (activeTab === 'task' ? tasks : projects).map(renderQuestCard).join('')}
+          ${tasks.length === 0
+            ? `<div class="empty-state">No tasks yet.<br>Add one or pick a preset!</div>`
+            : tasks.map(t => renderTaskCard(t, projectMap[t.parent_quest_id] || null)).join('')}
+        </div>
+      ` : activeTab === 'project' ? `
+        <div class="quest-list" id="quest-list">
+          ${projects.length === 0
+            ? `<div class="empty-state">No projects yet.<br>Add one to group your tasks!</div>`
+            : projects.map(p => renderProjectCard(p, tasksByProject[p.id] || [], objectiveMap[p.objective_id] || null)).join('')}
         </div>
       ` : `
         <div class="obj-list" id="obj-list">
           ${objectives.length === 0
             ? `<div class="empty-state">No quests yet.<br>Set a long-term goal to get started!</div>`
-            : objectives.map(renderObjCard).join('')}
+            : objectives.map(o => renderObjCard(o, projectsByObj[o.id] || [])).join('')}
         </div>
       `}
     </div>
@@ -146,6 +145,28 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           </div>
         </div>
 
+        <!-- Linking: tasks can be linked to a project -->
+        ${activeTab === 'task' ? `
+          <div class="form-group">
+            <label class="form-label">Part of Project (optional)</label>
+            <select class="input" id="quest-parent-project">
+              <option value="">— Standalone —</option>
+              ${projects.map(p => `<option value="${p.id}">${p.title}</option>`).join('')}
+            </select>
+          </div>
+        ` : ''}
+
+        <!-- Linking: projects can be linked to a long-term quest -->
+        ${activeTab === 'project' ? `
+          <div class="form-group">
+            <label class="form-label">Part of Quest (optional)</label>
+            <select class="input" id="quest-objective">
+              <option value="">— Standalone —</option>
+              ${objectives.map(o => `<option value="${o.id}">${o.title}</option>`).join('')}
+            </select>
+          </div>
+        ` : ''}
+
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-quest-modal">Cancel</button>
           <button class="btn btn-primary" id="save-quest-btn">Save</button>
@@ -176,7 +197,8 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         </div>
         <div class="form-group">
           <label class="form-label">Milestones (one per line)</label>
-          <textarea class="input textarea" id="obj-milestones" placeholder="e.g. Research options&#10;Make a plan&#10;Take first step" rows="3"></textarea>
+          <textarea class="input textarea" id="obj-milestones"
+            placeholder="e.g. Research options&#10;Make a plan&#10;Take first step" rows="3"></textarea>
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-obj-modal">Cancel</button>
@@ -231,7 +253,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     <div class="modal-overlay hidden" id="delete-obj-modal">
       <div class="modal">
         <h3 class="modal-title">Delete Quest?</h3>
-        <p class="modal-body">This will permanently delete this goal.</p>
+        <p class="modal-body">This will permanently delete this quest.</p>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="cancel-delete-obj">Cancel</button>
           <button class="btn btn-danger" id="confirm-delete-obj">Delete</button>
@@ -267,11 +289,16 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     document.getElementById('quest-difficulty').value = quest ? quest.difficulty : 'medium';
     document.getElementById('quest-deadline').value   = quest ? (quest.deadline || '') : '';
 
-    // Init category chips
     selectedCategories = quest && quest.category
       ? quest.category.split(',').map(c => c.trim()).filter(Boolean)
       : ['health'];
     syncCategoryChips();
+
+    const parentProjectSel = document.getElementById('quest-parent-project');
+    if (parentProjectSel) parentProjectSel.value = quest ? (quest.parent_quest_id || '') : '';
+
+    const objectiveSel = document.getElementById('quest-objective');
+    if (objectiveSel) objectiveSel.value = quest ? (quest.objective_id || '') : '';
 
     document.getElementById('quest-modal').classList.remove('hidden');
     document.getElementById('quest-title').focus();
@@ -295,7 +322,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     });
   });
 
-  // Calendar & quick-date buttons
   const deadlineInput = document.getElementById('quest-deadline');
   attachCalendar(deadlineInput);
   document.getElementById('dl-today').addEventListener('click', () => {
@@ -306,37 +332,39 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     deadlineInput.value = endOfWeek();
     deadlineInput.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  document.getElementById('dl-clear').addEventListener('click', () => {
-    deadlineInput.value = '';
-  });
+  document.getElementById('dl-clear').addEventListener('click', () => { deadlineInput.value = ''; });
 
   document.getElementById('close-quest-modal').addEventListener('click', () => {
     document.getElementById('quest-modal').classList.add('hidden');
   });
 
   document.getElementById('save-quest-btn').addEventListener('click', async () => {
-    const title       = document.getElementById('quest-title').value.trim();
-    const description = document.getElementById('quest-desc').value.trim() || null;
-    const difficulty  = document.getElementById('quest-difficulty').value;
-    const deadline    = document.getElementById('quest-deadline').value || null;
-    const category    = selectedCategories.join(',');
-    const frequency   = TAB_FREQ[activeTab] || 'daily';
+    const title          = document.getElementById('quest-title').value.trim();
+    const description    = document.getElementById('quest-desc').value.trim() || null;
+    const difficulty     = document.getElementById('quest-difficulty').value;
+    const deadline       = document.getElementById('quest-deadline').value || null;
+    const category       = selectedCategories.join(',');
+    const frequency      = TAB_FREQ[activeTab] || 'daily';
+    const parentQuestSel = document.getElementById('quest-parent-project');
+    const objSel         = document.getElementById('quest-objective');
+    const parent_quest_id = parentQuestSel ? (parentQuestSel.value || null) : null;
+    const objective_id    = objSel         ? (objSel.value         || null) : null;
 
     if (!title) { showToast('Please enter a title', 'error'); return; }
 
     try {
       if (editingQuestId) {
-        const updated = await updateQuest(editingQuestId, { title, description, category, difficulty, deadline });
+        const updated = await updateQuest(editingQuestId,
+          { title, description, category, difficulty, deadline, parent_quest_id, objective_id });
         quests.splice(quests.findIndex(q => q.id === editingQuestId), 1, updated);
       } else {
-        const newQ = await createQuest(userId, { title, description, category, difficulty, frequency, deadline, is_recurring: false });
+        const newQ = await createQuest(userId,
+          { title, description, category, difficulty, frequency, deadline, parent_quest_id, objective_id, is_recurring: false });
         quests.push(newQ);
       }
       document.getElementById('quest-modal').classList.add('hidden');
       render(quests, objectives, container, userId, onXPUpdate, activeTab);
-    } catch (err) {
-      showToast('Failed to save activity', 'error');
-    }
+    } catch { showToast('Failed to save activity', 'error'); }
   });
 
   // ─── OBJ MODAL ───────────────────────────────────────────────────────────
@@ -367,7 +395,8 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       ? milestonesRaw.split('\n').filter(l => l.trim()).map(text => ({ text: text.trim(), done: false }))
       : [];
     if (!title) { showToast('Please enter a title', 'error'); return; }
-    const payload = { title, description, category, progress: Math.min(100, Math.max(0, progress)), milestones, completed: progress >= 100 };
+    const payload = { title, description, category,
+      progress: Math.min(100, Math.max(0, progress)), milestones, completed: progress >= 100 };
     try {
       if (editingObjId) {
         const updated = await updateObjective(editingObjId, payload);
@@ -391,18 +420,17 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   document.querySelectorAll('.preset-add-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const preset = PRESETS[parseInt(btn.dataset.idx)];
-      btn.disabled    = true;
-      btn.textContent = 'Adding…';
+      btn.disabled = true; btn.textContent = 'Adding…';
       try {
-        const newQ = await createQuest(userId, { ...preset, frequency: TAB_FREQ[activeTab] || 'daily', is_recurring: false });
+        const newQ = await createQuest(userId,
+          { ...preset, frequency: TAB_FREQ[activeTab] || 'daily', is_recurring: false });
         quests.push(newQ);
         btn.textContent = '✓ Added';
         btn.classList.add('btn-added');
         showToast(`"${preset.title}" added!`, 'success');
       } catch {
         showToast('Failed to add preset', 'error');
-        btn.disabled    = false;
-        btn.textContent = '+ Add';
+        btn.disabled = false; btn.textContent = '+ Add';
       }
     });
   });
@@ -421,14 +449,16 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         btn.disabled = true;
         try {
           const result = await completeQuest(userId, quest);
+          quest.last_completed = todayStr();
           showStatBoost(result.statKey, result.statBoost);
           if (result.leveledUp) showLevelUpBanner(result.newLevel, result.className);
           if (onXPUpdate) onXPUpdate(result.profile);
-          showToast(`+${quest.xp_reward} XP earned!`, 'success');
+          if (quest.xp_reward > 0) showToast(`+${quest.xp_reward} XP earned!`, 'success');
+          render(quests, objectives, container, userId, onXPUpdate, activeTab);
         } catch {
           showToast('Failed to complete activity', 'error');
+          btn.disabled = false;
         }
-        btn.disabled = false;
         return;
       }
 
@@ -535,6 +565,14 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
+function groupBy(arr, keyFn) {
+  return arr.reduce((acc, item) => {
+    const k = keyFn(item);
+    if (k) { if (!acc[k]) acc[k] = []; acc[k].push(item); }
+    return acc;
+  }, {});
+}
+
 function tabSubtitle(tab, counts) {
   if (tab === 'task')     return `${counts.task} task${counts.task !== 1 ? 's' : ''}`;
   if (tab === 'project')  return `${counts.project} project${counts.project !== 1 ? 's' : ''}`;
@@ -544,22 +582,26 @@ function tabSubtitle(tab, counts) {
 
 // ─── CARD RENDERERS ──────────────────────────────────────────────────────────
 
-function renderQuestCard(quest) {
-  const overdue    = isOverdue(quest);
-  const diffBadge  = `<span class="badge badge-${quest.difficulty}">${DIFFICULTY_ICONS[quest.difficulty] || ''} ${quest.difficulty}</span>`;
+function renderTaskCard(quest, parentProject) {
+  const done    = isDone(quest);
+  const overdue = isOverdue(quest);
+  const diffBadge = `<span class="badge badge-${quest.difficulty}">${DIFFICULTY_ICONS[quest.difficulty] || ''} ${quest.difficulty}</span>`;
   const deadlineEl = quest.deadline
     ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(quest.deadline)}</span>`
     : '';
 
   return `
-    <div class="quest-card card ${overdue ? 'quest-overdue' : ''}" data-id="${quest.id}">
+    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${quest.id}">
       <div class="quest-main">
         <div class="quest-left">
-          <button class="complete-btn" title="Complete">○</button>
+          <button class="complete-btn ${done ? 'done' : ''}" title="${done ? 'Complete again' : 'Complete'}">
+            ${done ? '✓' : '○'}
+          </button>
           <div class="quest-details">
             <div class="quest-title-row">
               <span class="quest-title">${quest.title}</span>
             </div>
+            ${parentProject ? `<div class="link-parent-tag">📋 ${parentProject.title}</div>` : ''}
             ${quest.description ? `<div class="quest-description">${quest.description}</div>` : ''}
             <div class="quest-meta">
               ${renderCats(quest.category)}
@@ -567,6 +609,56 @@ function renderQuestCard(quest) {
               ${quest.xp_reward > 0 ? `<span class="quest-xp gold">+${quest.xp_reward} XP</span>` : ''}
               ${deadlineEl}
             </div>
+          </div>
+        </div>
+        <div class="quest-actions">
+          <button class="icon-btn edit-quest-btn" title="Edit">✏️</button>
+          <button class="icon-btn delete-quest-btn" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderProjectCard(project, linkedTasks, parentObjective) {
+  const done    = isDone(project);
+  const overdue = isOverdue(project);
+  const diffBadge = `<span class="badge badge-${project.difficulty}">${DIFFICULTY_ICONS[project.difficulty] || ''} ${project.difficulty}</span>`;
+  const deadlineEl = project.deadline
+    ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(project.deadline)}</span>`
+    : '';
+
+  return `
+    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${project.id}">
+      <div class="quest-main">
+        <div class="quest-left">
+          <button class="complete-btn ${done ? 'done' : ''}" title="${done ? 'Complete again' : 'Complete'}">
+            ${done ? '✓' : '○'}
+          </button>
+          <div class="quest-details">
+            <div class="quest-title-row">
+              <span class="quest-title">${project.title}</span>
+              ${linkedTasks.length > 0 ? `<span class="link-count-badge">📑 ${linkedTasks.length} task${linkedTasks.length !== 1 ? 's' : ''}</span>` : ''}
+            </div>
+            ${parentObjective ? `<div class="link-parent-tag">🎯 ${parentObjective.title}</div>` : ''}
+            ${project.description ? `<div class="quest-description">${project.description}</div>` : ''}
+            <div class="quest-meta">
+              ${renderCats(project.category)}
+              ${diffBadge}
+              ${project.xp_reward > 0 ? `<span class="quest-xp gold">+${project.xp_reward} XP</span>` : ''}
+              ${deadlineEl}
+            </div>
+            ${linkedTasks.length > 0 ? `
+              <div class="linked-tasks-list">
+                ${linkedTasks.map(t => `
+                  <div class="linked-task-item ${isDone(t) ? 'done' : ''}">
+                    <span class="linked-task-dot">${isDone(t) ? '✓' : '○'}</span>
+                    <span class="linked-task-title">${t.title}</span>
+                    ${t.xp_reward > 0 ? `<span class="linked-task-xp gold">+${t.xp_reward}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
           </div>
         </div>
         <div class="quest-actions">
@@ -598,15 +690,17 @@ function renderPresetCard(preset, idx, existingQuests) {
   `;
 }
 
-function renderObjCard(obj) {
-  const catIcon  = OBJ_CATEGORY_ICONS[obj.category] || '📋';
+function renderObjCard(obj, linkedProjects) {
+  const catIcon    = OBJ_CATEGORY_ICONS[obj.category] || '📋';
   const milestones = obj.milestones || [];
+
   return `
     <div class="obj-card card ${obj.completed ? 'obj-complete' : ''}" data-id="${obj.id}">
       <div class="obj-header">
         <div class="obj-title-row">
           <span class="obj-title">${obj.title}</span>
           ${obj.completed ? '<span class="badge badge-legendary">✓ Complete</span>' : ''}
+          ${linkedProjects.length > 0 ? `<span class="link-count-badge">📋 ${linkedProjects.length} project${linkedProjects.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
         <div class="obj-actions">
           <button class="icon-btn edit-obj-btn" title="Edit">✏️</button>
@@ -621,6 +715,16 @@ function renderObjCard(obj) {
       <div class="obj-progress-bar-track">
         <div class="obj-progress-fill ${obj.completed ? 'complete' : ''}" style="width:${obj.progress}%"></div>
       </div>
+      ${linkedProjects.length > 0 ? `
+        <div class="linked-tasks-list">
+          ${linkedProjects.map(p => `
+            <div class="linked-task-item ${isDone(p) ? 'done' : ''}">
+              <span class="linked-task-dot">${isDone(p) ? '✓' : '○'}</span>
+              <span class="linked-task-title">${p.title}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
       ${milestones.length > 0 ? `
         <ul class="milestone-list">
           ${milestones.map((m, i) => `
