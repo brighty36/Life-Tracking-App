@@ -8,6 +8,8 @@ const ENTRY_META = {
   reward_redeemed: { icon: '🎁',  label: 'Reward Redeemed',  color: 'gold'   },
   level_up:        { icon: '⭐',  label: 'Level Up!',        color: 'purple' },
   stat_boost:      { icon: '📈',  label: 'Stat Boost',       color: 'blue'   },
+  monthly_reset:   { icon: '🔄',  label: 'Month Reset',      color: 'purple' },
+  reflection:      { icon: '🪞',  label: 'Reflection',       color: 'blue'   },
 };
 
 export async function renderJournal(userId, container, onXPUpdate) {

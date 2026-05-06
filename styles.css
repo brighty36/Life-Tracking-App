@@ -326,8 +326,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 
 .profile-card-avatar { font-size: 2.5rem; line-height: 1; }
 .profile-card-name   { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
-.profile-card-class  { font-size: 0.75rem; color: var(--gold); }
-.profile-card-level  { font-size: 0.75rem; color: var(--text-secondary); }
+.profile-card-xp { font-size: 0.75rem; color: var(--gold); }
 
 .profile-empty { color: var(--text-secondary); font-size: 0.9rem; grid-column: 1 / -1; padding: 1rem 0; }
 
@@ -372,15 +371,6 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   display: flex; align-items: center; gap: 0.75rem;
   flex: 1; min-width: 0;
 }
-.header-level {
-  background: var(--purple-accent);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  white-space: nowrap;
-}
 .header-name {
   font-weight: 600;
   font-size: 0.875rem;
@@ -388,20 +378,13 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   flex: 1; min-width: 0;
 }
 .header-xp-wrapper {
-  display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 80px; max-width: 160px;
+  display: flex; align-items: center; gap: 0.75rem;
 }
-.header-xp-pct {
-  font-size: 0.65rem; color: var(--text-muted); text-align: right;
+.header-xp-block {
+  font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap;
 }
-.header-xp-track {
-  height: 6px; background: var(--bg-primary); border-radius: 999px; overflow: hidden;
-}
-.header-xp-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--purple-accent), var(--gold));
-  border-radius: 999px;
-  width: 0%;
-  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+.header-xp-block span {
+  font-weight: 700; color: var(--gold);
 }
 
 .header-actions { display: flex; align-items: center; gap: 0.5rem; }
@@ -550,34 +533,18 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   color: var(--text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.character-class { font-size: 0.85rem; color: var(--gold); margin-bottom: 0.4rem; letter-spacing: 0.05em; }
-.level-badge {
-  display: inline-block;
-  background: var(--purple-accent);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.7rem;
-  border-radius: 999px;
-}
-
 .xp-section { }
-.xp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
-.label { font-size: 0.8rem; color: var(--text-secondary); }
-.xp-numbers { font-size: 0.875rem; font-weight: 600; }
-
-.xp-bar-track {
-  height: 14px; background: var(--bg-secondary); border-radius: 999px; overflow: hidden;
-  border: 1px solid var(--border-color);
+.xp-dual-row {
+  display: flex; align-items: center; justify-content: space-around; gap: 1rem;
 }
-.xp-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--purple-accent), var(--gold));
-  border-radius: 999px;
-  width: 0%;
-  box-shadow: 0 0 8px rgba(251,191,36,0.4);
+.xp-block {
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem; flex: 1;
 }
-.xp-footer { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; text-align: right; }
+.xp-block-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.xp-block-value { font-size: 1.6rem; font-weight: 700; font-family: var(--font-heading); }
+.xp-block-divider {
+  width: 1px; height: 2.5rem; background: var(--border-color);
+}
 
 .stats-grid {
   display: grid;
@@ -612,6 +579,7 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .stat-bar-fill.stat-amber  { background: var(--stat-amber);  box-shadow: 0 0 6px var(--stat-amber); }
 .stat-bar-fill.stat-green  { background: var(--stat-green);  box-shadow: 0 0 6px var(--stat-green); }
 .stat-tier { font-size: 0.7rem; color: var(--text-muted); }
+.stat-monthly-xp { font-size: 0.68rem; color: var(--gold); margin-top: 0.25rem; opacity: 0.85; }
 
 .avatar-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;

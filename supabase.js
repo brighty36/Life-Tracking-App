@@ -1,6 +1,6 @@
 // Supabase client and all database access functions
 
-import { xpForLevel, classForLevel, applyXP, CATEGORY_STAT_MAP, XP_BY_DIFFICULTY, STAT_BOOST_BY_DIFFICULTY } from './utils/xp.js';
+import { CATEGORY_STAT_MAP, XP_BY_DIFFICULTY, STAT_BOOST_BY_DIFFICULTY } from './utils/xp.js';
 
 // ─── CLIENT ──────────────────────────────────────────────────────────────────
 
@@ -29,9 +29,10 @@ export async function getAllProfiles() {
 }
 
 export async function createProfile(username, avatar) {
+  const currentMonth = new Date().toISOString().slice(0, 7);
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ username, avatar, character_class: 'Novice', level: 1, xp: 0, xp_to_next_level: 100 })
+    .insert({ username, avatar, lifetime_xp: 0, daily_xp: 0, stats_reset_month: currentMonth })
     .select().single();
   if (error) throw error;
 
@@ -42,7 +43,7 @@ export async function createProfile(username, avatar) {
 async function seedNewProfile(profileId) {
   const { error: se } = await supabase.from('stats').insert({
     user_id: profileId,
-    health: 25, intellect: 25, work: 25, wealth: 25, relationships: 25,
+    health: 0, intellect: 0, work: 0, wealth: 0, relationships: 0,
   });
   if (se && se.code !== '23505') throw se;
 
@@ -83,6 +84,74 @@ export async function updateStats(userId, updates) {
   return data;
 }
 
+// ─── MONTHLY RESET ───────────────────────────────────────────────────────────
+
+/**
+ * If the current month differs from the profile's stats_reset_month, reset
+ * all hero stats to 0 and log a monthly summary entry.
+ * Returns true if a reset happened, false otherwise.
+ */
+export async function checkAndResetMonth(userId) {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const profile = await getProfile(userId);
+
+  if (profile.stats_reset_month === currentMonth) return false;
+
+  const stats = await getStats(userId);
+  const prevMonth = profile.stats_reset_month || 'previous month';
+
+  const statSummary = [
+    `Health: ${stats.health ?? 0}`,
+    `Intellect: ${stats.intellect ?? 0}`,
+    `Work: ${stats.work ?? 0}`,
+    `Wealth: ${stats.wealth ?? 0}`,
+    `Relationships: ${stats.relationships ?? 0}`,
+  ].join(', ');
+
+  await logActivity(userId, 'monthly_reset',
+    `Month ended (${prevMonth}) — ${statSummary}`, 0);
+
+  await updateStats(userId, { health: 0, intellect: 0, work: 0, wealth: 0, relationships: 0 });
+  await updateProfile(userId, { stats_reset_month: currentMonth });
+
+  return true;
+}
+
+// ─── MONTHLY CATEGORY XP ─────────────────────────────────────────────────────
+
+export async function getMonthlyCategoryXP(userId, yearMonth) {
+  const { data, error } = await supabase
+    .from('monthly_category_xp')
+    .select('stat_key, xp_total')
+    .eq('user_id', userId)
+    .eq('year_month', yearMonth);
+  if (error) throw error;
+
+  const result = {};
+  (data || []).forEach(row => { result[row.stat_key] = row.xp_total; });
+  return result;
+}
+
+async function upsertMonthlyCategoryXP(userId, yearMonth, statKey, xpGain) {
+  const { data: existing } = await supabase
+    .from('monthly_category_xp')
+    .select('xp_total')
+    .eq('user_id', userId)
+    .eq('year_month', yearMonth)
+    .eq('stat_key', statKey)
+    .maybeSingle();
+
+  const newTotal = (existing?.xp_total || 0) + xpGain;
+
+  const { error } = await supabase
+    .from('monthly_category_xp')
+    .upsert(
+      { user_id: userId, year_month: yearMonth, stat_key: statKey, xp_total: newTotal },
+      { onConflict: 'user_id,year_month,stat_key' }
+    );
+  if (error) console.error('Monthly XP upsert error:', error);
+}
+
 // ─── QUESTS ──────────────────────────────────────────────────────────────────
 
 export async function getQuests(userId) {
@@ -116,10 +185,11 @@ export async function deleteQuest(questId) {
 
 /**
  * Complete a quest: award XP + stat boost, log activity.
- * Returns { profile, stats, leveledUp, newLevel, className, statKey, statBoost }.
+ * Returns { profile, stats, statKey, statBoost }.
  */
 export async function completeQuest(userId, quest) {
-  const today = new Date().toISOString().split('T')[0];
+  const today        = new Date().toISOString().split('T')[0];
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const lastWeek  = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
@@ -132,26 +202,32 @@ export async function completeQuest(userId, quest) {
 
   await supabase.from('quests').update({ last_completed: today, streak: newStreak }).eq('id', quest.id);
 
+  // Check for month rollover before applying anything
+  await checkAndResetMonth(userId);
+
   const [profile, stats] = await Promise.all([getProfile(userId), getStats(userId)]);
 
-  const xpGain  = quest.xp_reward;
+  const xpGain     = quest.xp_reward;
   const primaryCat = quest.category ? quest.category.split(',')[0].trim() : null;
-  const statKey = CATEGORY_STAT_MAP[primaryCat];
-  const statBoost = STAT_BOOST_BY_DIFFICULTY[quest.difficulty] ?? 1;
+  const statKey    = CATEGORY_STAT_MAP[primaryCat];
+  const statBoost  = STAT_BOOST_BY_DIFFICULTY[quest.difficulty] ?? 1;
 
-  const { newLevel, newXp, newXpToNext, leveledUp } = applyXP(
-    profile.level, profile.xp, profile.xp_to_next_level, xpGain
-  );
-  const newClass = classForLevel(newLevel);
+  // Daily XP resets if it's a new day
+  const newDailyXp = profile.daily_xp_date === today
+    ? (profile.daily_xp || 0) + xpGain
+    : xpGain;
 
   const updatedProfile = await updateProfile(userId, {
-    level: newLevel, xp: newXp, xp_to_next_level: newXpToNext, character_class: newClass,
+    lifetime_xp:   (profile.lifetime_xp || 0) + xpGain,
+    daily_xp:      newDailyXp,
+    daily_xp_date: today,
   });
 
   let updatedStats = stats;
   if (statKey) {
     const newStatValue = Math.min(100, (stats[statKey] || 0) + statBoost);
     updatedStats = await updateStats(userId, { [statKey]: newStatValue });
+    await upsertMonthlyCategoryXP(userId, currentMonth, statKey, xpGain);
   } else {
     console.warn('No stat mapping for quest category:', quest.category);
   }
@@ -159,11 +235,7 @@ export async function completeQuest(userId, quest) {
   await logActivity(userId, 'quest_complete',
     `Completed quest: ${quest.title} (+${xpGain} XP${statKey ? `, +${statBoost} ${statKey}` : ''})`, xpGain);
 
-  if (leveledUp) {
-    await logActivity(userId, 'level_up', `Reached Level ${newLevel} — ${newClass}!`, 0);
-  }
-
-  return { profile: updatedProfile, stats: updatedStats, leveledUp, newLevel, className: newClass, statKey, statBoost };
+  return { profile: updatedProfile, stats: updatedStats, statKey, statBoost };
 }
 
 // ─── OBJECTIVES ──────────────────────────────────────────────────────────────
@@ -218,37 +290,16 @@ export async function deleteReward(rewardId) {
 }
 
 /**
- * Redeem a reward: deduct XP across levels if needed, log activity.
+ * Redeem a reward: deduct from lifetime XP, log activity.
  * Returns updated profile.
  */
 export async function redeemReward(userId, reward) {
-  const profile = await getProfile(userId);
+  const profile    = await getProfile(userId);
+  const lifetimeXp = profile.lifetime_xp || 0;
+  if (lifetimeXp < reward.xp_cost) throw new Error('Not enough XP');
 
-  let bankXp = profile.xp;
-  for (let l = 1; l < profile.level; l++) bankXp += xpForLevel(l);
-  if (bankXp < reward.xp_cost) throw new Error('Not enough XP');
-
-  let remaining = reward.xp_cost;
-  let { level, xp } = profile;
-
-  if (xp >= remaining) {
-    xp -= remaining;
-  } else {
-    remaining -= xp;
-    xp = 0;
-    while (remaining > 0 && level > 1) {
-      level -= 1;
-      const cap = xpForLevel(level);
-      if (cap >= remaining) { xp = cap - remaining; remaining = 0; }
-      else { remaining -= cap; }
-    }
-    if (remaining > 0) throw new Error('Not enough XP');
-  }
-
-  const newClass  = classForLevel(level);
-  const xpToNext  = xpForLevel(level);
   const updatedProfile = await updateProfile(userId, {
-    level, xp, xp_to_next_level: xpToNext, character_class: newClass,
+    lifetime_xp: lifetimeXp - reward.xp_cost,
   });
 
   await supabase.from('redemptions').insert({ user_id: userId, reward_id: reward.id });
@@ -348,54 +399,38 @@ export async function logActivity(userId, entry_type, description, xp_delta = 0)
 }
 
 /**
- * Apply a signed XP change to a profile, handling level ups and downs.
- * Positive xpChange → gain XP. Negative → lose XP (can de-level, floor at lv1 xp=0).
- * Returns the updated profile.
+ * Apply a signed XP change to a profile's lifetime (and daily if from today).
+ * Returns the updated profile, or null when xpChange is 0.
  */
-async function adjustProfileXP(userId, xpChange) {
-  const profile = await getProfile(userId);
-  let { level, xp } = profile;
+async function adjustProfileXP(userId, xpChange, entryDate) {
+  if (xpChange === 0) return null;
 
-  if (xpChange > 0) {
-    const result = applyXP(level, xp, profile.xp_to_next_level, xpChange);
-    level = result.newLevel;
-    xp    = result.newXp;
-  } else if (xpChange < 0) {
-    let remaining = -xpChange;
-    if (xp >= remaining) {
-      xp -= remaining;
-    } else {
-      remaining -= xp;
-      xp = 0;
-      while (remaining > 0 && level > 1) {
-        level -= 1;
-        const cap = xpForLevel(level);
-        if (cap >= remaining) { xp = cap - remaining; remaining = 0; }
-        else { remaining -= cap; }
-      }
-      // Floor at level 1, xp 0 — can't go below zero
-    }
-  } else {
-    return null;
+  const profile = await getProfile(userId);
+  const today   = new Date().toISOString().split('T')[0];
+
+  const updates = {
+    lifetime_xp: Math.max(0, (profile.lifetime_xp || 0) + xpChange),
+  };
+
+  if (entryDate === today) {
+    updates.daily_xp = Math.max(0, (profile.daily_xp || 0) + xpChange);
   }
 
-  const newClass  = classForLevel(level);
-  const xpToNext  = xpForLevel(level);
-  return updateProfile(userId, { level, xp, xp_to_next_level: xpToNext, character_class: newClass });
+  return updateProfile(userId, updates);
 }
 
 export async function deleteActivityLog(entryId) {
   const { data: entry, error: fetchErr } = await supabase
-    .from('activity_log').select('user_id, xp_delta').eq('id', entryId).single();
+    .from('activity_log').select('user_id, xp_delta, created_at').eq('id', entryId).single();
   if (fetchErr) throw fetchErr;
 
-  // Reverse the XP change on the profile before deleting the record
+  const entryDate      = new Date(entry.created_at).toISOString().split('T')[0];
   const updatedProfile = entry.xp_delta !== 0
-    ? await adjustProfileXP(entry.user_id, -entry.xp_delta)
+    ? await adjustProfileXP(entry.user_id, -entry.xp_delta, entryDate)
     : null;
 
   const { error } = await supabase.from('activity_log').delete().eq('id', entryId);
   if (error) throw error;
 
-  return updatedProfile; // null when xp_delta was 0
+  return updatedProfile;
 }

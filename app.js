@@ -7,8 +7,8 @@ import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
 import { renderReflection } from './screens/reflection.js';
 import { renderBudget     } from './screens/budget.js';
-import { xpPercent } from './utils/xp.js';
-import { showToast, animateXPBar } from './utils/animations.js';
+import { getEffectiveDailyXP } from './utils/xp.js';
+import { showToast } from './utils/animations.js';
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -60,17 +60,13 @@ function handleXPUpdate(profile) {
 }
 
 function updateHeaderXP(profile) {
-  const nameEl  = document.getElementById('header-name');
-  const levelEl = document.getElementById('header-level');
-  const barEl   = document.getElementById('header-xp-bar');
-  const pctEl   = document.getElementById('header-xp-pct');
+  const nameEl     = document.getElementById('header-name');
+  const dailyEl    = document.getElementById('header-daily-xp');
+  const lifetimeEl = document.getElementById('header-lifetime-xp');
 
-  if (nameEl)  nameEl.textContent  = profile.username;
-  if (levelEl) levelEl.textContent = `Lv.${profile.level}`;
-
-  const pct = xpPercent(profile.xp, profile.xp_to_next_level);
-  if (pctEl)  pctEl.textContent   = `${profile.xp}/${profile.xp_to_next_level}`;
-  if (barEl)  animateXPBar(barEl, parseFloat(barEl.style.width) || 0, pct, 600);
+  if (nameEl)     nameEl.textContent     = profile.username;
+  if (dailyEl)    dailyEl.textContent    = getEffectiveDailyXP(profile).toLocaleString();
+  if (lifetimeEl) lifetimeEl.textContent = (profile.lifetime_xp || 0).toLocaleString();
 }
 
 // ─── PROFILE SELECTOR ────────────────────────────────────────────────────────
@@ -98,8 +94,7 @@ async function loadProfileCards() {
         <button class="profile-card" data-id="${p.id}">
           <span class="profile-card-avatar">${p.avatar}</span>
           <span class="profile-card-name">${p.username}</span>
-          <span class="profile-card-class">${p.character_class}</span>
-          <span class="profile-card-level">Lv.${p.level}</span>
+          <span class="profile-card-xp gold">${(p.lifetime_xp || 0).toLocaleString()} XP</span>
         </button>
       `).join('');
       container.querySelectorAll('.profile-card').forEach(card => {
