@@ -57,10 +57,12 @@ alter table quests add column if not exists frequency text not null default 'dai
 -- Migrate v1 'career' rows to 'work' BEFORE applying the constraint
 update quests set category = 'work' where category = 'career';
 
--- Refresh category constraint to include all v2 values
+-- v4: drop category constraint to allow comma-separated multi-category
 alter table quests drop constraint if exists quests_category_check;
-alter table quests add constraint quests_category_check
-  check (category in ('health','mind','work','finance','relationships'));
+-- v4: expand difficulty to include fun/quick
+alter table quests drop constraint if exists quests_difficulty_check;
+alter table quests add constraint quests_difficulty_check
+  check (difficulty in ('fun','quick','easy','medium','hard','legendary'));
 
 alter table quests disable row level security;
 
@@ -70,12 +72,15 @@ create table if not exists objectives (
   user_id     uuid not null,
   title       text not null,
   description text,
-  category    text not null check (category in ('health','mind','work','finance','relationships')),
+  category    text not null,
   progress    integer not null default 0 check (progress between 0 and 100),
   milestones  jsonb not null default '[]'::jsonb,
   completed   boolean not null default false,
   created_at  timestamptz not null default now()
 );
+
+-- v4: drop category constraint to allow multi-category
+alter table objectives drop constraint if exists objectives_category_check;
 
 alter table objectives disable row level security;
 

@@ -13,7 +13,8 @@ export const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON
 
 const DEFAULT_REWARDS = [
   { title: 'Takeaway',     description: 'Order your favourite food',   tier: 'small',     xp_cost: 100  },
-  { title: 'Joint',        description: 'Sit back and relax',          tier: 'small',     xp_cost: 75   },
+  { title: 'Joint',        description: 'Sit back and relax',          tier: 'small',     xp_cost: 100  },
+  { title: 'Cinema',       description: 'Watch a film',                tier: 'small',     xp_cost: 100  },
   { title: 'Day out',      description: 'A fun day trip somewhere',    tier: 'medium',    xp_cost: 400  },
   { title: 'Meal out',     description: 'Dinner at a nice restaurant', tier: 'medium',    xp_cost: 300  },
   { title: 'Weekend trip', description: 'A short getaway',             tier: 'large',     xp_cost: 1500 },
@@ -134,8 +135,9 @@ export async function completeQuest(userId, quest) {
   const [profile, stats] = await Promise.all([getProfile(userId), getStats(userId)]);
 
   const xpGain  = quest.xp_reward;
-  const statKey = CATEGORY_STAT_MAP[quest.category];
-  const statBoost = STAT_BOOST_BY_DIFFICULTY[quest.difficulty] || 1;
+  const primaryCat = quest.category ? quest.category.split(',')[0].trim() : null;
+  const statKey = CATEGORY_STAT_MAP[primaryCat];
+  const statBoost = STAT_BOOST_BY_DIFFICULTY[quest.difficulty] ?? 1;
 
   const { newLevel, newXp, newXpToNext, leveledUp } = applyXP(
     profile.level, profile.xp, profile.xp_to_next_level, xpGain
