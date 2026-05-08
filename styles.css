@@ -674,6 +674,60 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 .milestone-check:hover { border-color: var(--success); background: rgba(16,185,129,0.1); }
 .milestone-item.done .milestone-check { background: var(--success); border-color: var(--success); color: #fff; }
+.milestone-to-project-btn {
+  margin-left: auto; flex-shrink: 0;
+  padding: 0.1rem 0.45rem; font-size: 0.7rem;
+  opacity: 0.6; transition: opacity var(--transition);
+}
+.milestone-item:hover .milestone-to-project-btn { opacity: 1; }
+.milestone-item.done .milestone-to-project-btn { display: none; }
+
+/* ─── SORT BAR ──────────────────────────────────────────────────────────────── */
+.sort-bar {
+  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+  padding: 0.4rem 0; margin-bottom: -0.25rem;
+}
+.sort-label {
+  font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.1rem;
+  flex-shrink: 0;
+}
+.sort-btn {
+  padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 500;
+  border: 1px solid var(--border-color); background: transparent;
+  color: var(--text-secondary); cursor: pointer; transition: all var(--transition);
+  white-space: nowrap;
+}
+.sort-btn:hover { border-color: var(--border-light); color: var(--text-primary); }
+.sort-btn.active {
+  background: var(--purple-accent); border-color: var(--purple-accent);
+  color: #fff; font-weight: 600;
+}
+
+/* ─── DRAG AND DROP ──────────────────────────────────────────────────────────── */
+.drag-handle {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 1.1rem; line-height: 1;
+  padding: 0 0.35rem 0 0; cursor: grab; flex-shrink: 0;
+  user-select: none; opacity: 0.5; transition: opacity var(--transition);
+}
+.quest-card:hover .drag-handle { opacity: 1; }
+.drag-handle:active { cursor: grabbing; }
+
+.quest-card.dragging { opacity: 0.4; transform: scale(0.98); }
+.quest-card.drag-over {
+  border-color: var(--purple-accent);
+  box-shadow: 0 0 0 2px var(--purple-accent), var(--shadow-sm);
+}
+
+/* ─── ADD TASK TO PROJECT ────────────────────────────────────────────────────── */
+.add-task-btn {
+  margin-top: 0.5rem;
+  font-size: 0.75rem; padding: 0.2rem 0.6rem;
+  opacity: 0.7; transition: opacity var(--transition);
+}
+.add-task-btn:hover { opacity: 1; }
+.ptm-project-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
 
 /* ─── REWARDS SCREEN ───────────────────────────────────────────────────────── */
 .rewards-screen { display: flex; flex-direction: column; gap: 1rem; }
