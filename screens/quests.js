@@ -375,22 +375,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       </div>
     </div>
 
-    <!-- Progress modal -->
-    <div class="modal-overlay hidden" id="progress-modal">
-      <div class="modal">
-        <h3 class="modal-title">Update Progress</h3>
-        <div class="progress-input-group">
-          <input class="input" id="progress-input" type="number" min="0" max="100" value="0" />
-          <span class="progress-pct-label">%</span>
-        </div>
-        <input class="range-input" id="progress-range" type="range" min="0" max="100" value="0" />
-        <div class="modal-actions">
-          <button class="btn btn-ghost" id="close-progress-modal">Cancel</button>
-          <button class="btn btn-primary" id="save-progress-btn">Update</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Delete activity modal -->
     <div class="modal-overlay hidden" id="delete-quest-modal">
       <div class="modal">
@@ -419,7 +403,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   let editingQuestId         = null;
   let deletingQuestId        = null;
   let editingObjId           = null;
-  let progressObjId          = null;
   let deletingObjId          = null;
   let selectedCategories     = ['health'];
   let selectedPtmCategories  = ['health'];
@@ -937,14 +920,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         document.getElementById('delete-obj-modal').classList.remove('hidden');
         return;
       }
-      if (e.target.closest('.update-progress-btn')) {
-        progressObjId = obj.id;
-        document.getElementById('progress-input').value = obj.progress;
-        document.getElementById('progress-range').value = obj.progress;
-        document.getElementById('progress-modal').classList.remove('hidden');
-        return;
-      }
-
       // Milestone → Project conversion
       if (e.target.closest('.milestone-to-project-btn')) {
         const btn = e.target.closest('.milestone-to-project-btn');
@@ -986,28 +961,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       }
     });
   }
-
-  document.getElementById('progress-range').addEventListener('input', e => {
-    document.getElementById('progress-input').value = e.target.value;
-  });
-  document.getElementById('progress-input').addEventListener('input', e => {
-    document.getElementById('progress-range').value = e.target.value;
-  });
-  document.getElementById('close-progress-modal').addEventListener('click', () => {
-    document.getElementById('progress-modal').classList.add('hidden');
-  });
-  document.getElementById('save-progress-btn').addEventListener('click', async () => {
-    if (!progressObjId) return;
-    const clamped = Math.min(100, Math.max(0, parseInt(document.getElementById('progress-input').value) || 0));
-    try {
-      const updated = await updateObjective(progressObjId, { progress: clamped, completed: clamped >= 100 });
-      objectives.splice(objectives.findIndex(o => o.id === progressObjId), 1, updated);
-      document.getElementById('progress-modal').classList.add('hidden');
-      progressObjId = null;
-      render(quests, objectives, container, userId, onXPUpdate, 'longterm', activeSort);
-      if (clamped >= 100) showToast('Quest complete! 🎉', 'success');
-    } catch { showToast('Failed to update progress', 'error'); }
-  });
 
   document.getElementById('cancel-delete-obj').addEventListener('click', () => {
     document.getElementById('delete-obj-modal').classList.add('hidden');
@@ -1211,7 +1164,6 @@ function renderObjCard(obj, linkedProjects) {
       ` : ''}
       ${!obj.completed ? `
         <div class="obj-card-footer">
-          <button class="btn btn-ghost btn-sm update-progress-btn">Update Progress</button>
           <button class="btn btn-ghost btn-sm add-project-btn">+ Add Project</button>
         </div>
       ` : ''}
