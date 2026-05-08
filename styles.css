@@ -732,6 +732,12 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .obj-card-footer {
   display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;
 }
+.obj-completed-row { margin-top: 0.25rem; }
+.checkbox-label {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--purple-accent); }
 
 /* obj-card drag handle sits in the title row */
 .obj-title-row .drag-handle { margin-right: 0.15rem; }
