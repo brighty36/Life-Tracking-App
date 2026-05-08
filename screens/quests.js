@@ -8,7 +8,6 @@ import { attachCalendar, todayStr, endOfWeek } from '../utils/calendar.js';
 const DIFFICULTY_XP    = { fun: 0, quick: 5, easy: 25, medium: 50, hard: 100, legendary: 250 };
 const DIFFICULTY_ICONS = { fun: '🎉', quick: '⚡', easy: '🟢', medium: '🟡', hard: '🟠', legendary: '🔴' };
 const CATEGORY_ICONS   = { health: '❤️', mind: '🧠', work: '💼', finance: '💰', relationships: '🤝' };
-const OBJ_CATEGORY_ICONS = { health: '💪', mind: '🧠', career: '🎯', finance: '💰' };
 const ALL_CATEGORIES   = ['health','mind','work','finance','relationships'];
 
 const TAB_FREQ = { task: 'daily', project: 'weekly' };
@@ -110,7 +109,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   const counts = { task: tasks.length, project: projects.length, longterm: objectives.length };
 
   const sortBarEntries = activeTab === 'longterm'
-    ? [['custom','↕ Custom'],['alpha','A–Z'],['category','🏷 Cat'],['xp','📊 Progress'],['created','🕐 Created']]
+    ? [['custom','↕ Custom'],['alpha','A–Z'],['category','🏷 Cat'],['created','🕐 Created']]
     : Object.entries(SORT_LABELS);
   const sortBar = `
     <div class="sort-bar">
@@ -334,25 +333,19 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         <h3 class="modal-title" id="obj-modal-title">New Quest</h3>
         <input class="input" id="obj-title" placeholder="Quest title…" maxlength="100" />
         <textarea class="input textarea" id="obj-desc" placeholder="Description (optional)…" rows="2"></textarea>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Category</label>
-            <select class="input" id="obj-category">
-              <option value="health">💪 Health</option>
-              <option value="mind">🧠 Mind</option>
-              <option value="career">🎯 Career</option>
-              <option value="finance">💰 Finance</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Progress (%)</label>
-            <input class="input" id="obj-progress" type="number" min="0" max="100" value="0" />
+        <div class="form-group">
+          <label class="form-label">Categories</label>
+          <div class="cat-chips" id="obj-categories">
+            ${ALL_CATEGORIES.map(c => `
+              <button type="button" class="cat-chip obj-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+            `).join('')}
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Milestones (one per line)</label>
-          <textarea class="input textarea" id="obj-milestones"
-            placeholder="e.g. Research options&#10;Make a plan&#10;Take first step" rows="3"></textarea>
+        <div class="form-group obj-completed-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="obj-completed" />
+            <span>Mark as complete</span>
+          </label>
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-obj-modal">Cancel</button>
@@ -407,6 +400,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   let selectedCategories     = ['health'];
   let selectedPtmCategories  = ['health'];
   let selectedPaqCategories  = ['health'];
+  let selectedObjCategories  = ['health'];
   let addingTaskToProjectId  = null;
   let addingProjectToQuestId = null;
   let dragSrcId              = null;
@@ -477,7 +471,13 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     });
   }
 
-  document.querySelectorAll('.cat-chip:not(.ptm-chip):not(.paq-chip)').forEach(chip => {
+  function syncObjCategoryChips() {
+    document.querySelectorAll('.obj-chip').forEach(chip => {
+      chip.classList.toggle('active', selectedObjCategories.includes(chip.dataset.cat));
+    });
+  }
+
+  document.querySelectorAll('.cat-chip:not(.ptm-chip):not(.paq-chip):not(.obj-chip)').forEach(chip => {
     chip.addEventListener('click', () => {
       const cat = chip.dataset.cat;
       if (selectedCategories.includes(cat)) {
@@ -510,6 +510,18 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         selectedPaqCategories.push(cat);
       }
       syncPaqCategoryChips();
+    });
+  });
+
+  document.querySelectorAll('.obj-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cat = chip.dataset.cat;
+      if (selectedObjCategories.includes(cat)) {
+        if (selectedObjCategories.length > 1) selectedObjCategories = selectedObjCategories.filter(c => c !== cat);
+      } else {
+        selectedObjCategories.push(cat);
+      }
+      syncObjCategoryChips();
     });
   });
 
@@ -615,11 +627,11 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   });
 
   // ─── ADD PROJECT TO QUEST MODAL ──────────────────────────────────────────
-  const OBJ_TO_QUEST_CAT = { health: 'health', mind: 'mind', career: 'work', finance: 'finance' };
-
   function openQuestProjectModal(obj) {
     addingProjectToQuestId = obj.id;
-    selectedPaqCategories = [OBJ_TO_QUEST_CAT[obj.category] || 'work'];
+    selectedPaqCategories = obj.category
+      ? obj.category.split(',').map(c => c.trim()).filter(Boolean)
+      : ['health'];
     document.getElementById('paq-quest-label').textContent = `🎯 ${obj.title}`;
     document.getElementById('paq-title').value = '';
     document.getElementById('paq-desc').value = '';
@@ -676,12 +688,13 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   function openObjModal(obj) {
     editingObjId = obj ? obj.id : null;
     document.getElementById('obj-modal-title').textContent = obj ? 'Edit Quest' : 'New Quest';
-    document.getElementById('obj-title').value    = obj ? obj.title : '';
-    document.getElementById('obj-desc').value     = obj ? (obj.description || '') : '';
-    document.getElementById('obj-category').value = obj ? obj.category : 'health';
-    document.getElementById('obj-progress').value = obj ? obj.progress : 0;
-    document.getElementById('obj-milestones').value = obj
-      ? (obj.milestones || []).map(m => m.text || m).join('\n') : '';
+    document.getElementById('obj-title').value = obj ? obj.title : '';
+    document.getElementById('obj-desc').value  = obj ? (obj.description || '') : '';
+    document.getElementById('obj-completed').checked = obj ? !!obj.completed : false;
+    selectedObjCategories = obj && obj.category
+      ? obj.category.split(',').map(c => c.trim()).filter(Boolean)
+      : ['health'];
+    syncObjCategoryChips();
     document.getElementById('obj-modal').classList.remove('hidden');
     document.getElementById('obj-title').focus();
   }
@@ -691,17 +704,12 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   });
 
   document.getElementById('save-obj-btn').addEventListener('click', async () => {
-    const title         = document.getElementById('obj-title').value.trim();
-    const description   = document.getElementById('obj-desc').value.trim();
-    const category      = document.getElementById('obj-category').value;
-    const progress      = parseInt(document.getElementById('obj-progress').value) || 0;
-    const milestonesRaw = document.getElementById('obj-milestones').value.trim();
-    const milestones    = milestonesRaw
-      ? milestonesRaw.split('\n').filter(l => l.trim()).map(text => ({ text: text.trim(), done: false }))
-      : [];
+    const title       = document.getElementById('obj-title').value.trim();
+    const description = document.getElementById('obj-desc').value.trim() || null;
+    const category    = selectedObjCategories.join(',');
+    const completed   = document.getElementById('obj-completed').checked;
     if (!title) { showToast('Please enter a title', 'error'); return; }
-    const payload = { title, description, category,
-      progress: Math.min(100, Math.max(0, progress)), milestones, completed: progress >= 100 };
+    const payload = { title, description, category, completed, progress: completed ? 100 : 0, milestones: [] };
     try {
       if (editingObjId) {
         const updated = await updateObjective(editingObjId, payload);
@@ -920,45 +928,6 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         document.getElementById('delete-obj-modal').classList.remove('hidden');
         return;
       }
-      // Milestone → Project conversion
-      if (e.target.closest('.milestone-to-project-btn')) {
-        const btn = e.target.closest('.milestone-to-project-btn');
-        const idx = parseInt(btn.dataset.idx);
-        const milestone = (obj.milestones || [])[idx];
-        if (!milestone) return;
-        const milestoneText = milestone.text || milestone;
-        btn.disabled = true;
-        btn.textContent = '…';
-        try {
-          const newProject = await createQuest(userId, {
-            title: milestoneText,
-            category: obj.category || 'health',
-            difficulty: 'medium',
-            frequency: 'weekly',
-            objective_id: obj.id,
-            is_recurring: false,
-          });
-          quests.push(newProject);
-          showToast(`"${milestoneText}" created as a project!`, 'success');
-          render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
-        } catch {
-          showToast('Failed to create project', 'error');
-          btn.disabled = false;
-          btn.textContent = '→ Project';
-        }
-        return;
-      }
-
-      if (e.target.closest('.milestone-check')) {
-        const idx = parseInt(e.target.closest('.milestone-check').dataset.idx);
-        const milestones = [...(obj.milestones || [])];
-        milestones[idx] = { ...milestones[idx], done: !milestones[idx].done };
-        try {
-          const updated = await updateObjective(obj.id, { milestones });
-          objectives.splice(objectives.findIndex(o => o.id === obj.id), 1, updated);
-          render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
-        } catch { showToast('Failed to update milestone', 'error'); }
-      }
     });
   }
 
@@ -1115,9 +1084,7 @@ function renderPresetCard(preset, idx, existingQuests) {
 }
 
 function renderObjCard(obj, linkedProjects) {
-  const catIcon    = OBJ_CATEGORY_ICONS[obj.category] || '📋';
-  const milestones = obj.milestones || [];
-  const draggable  = _activeSort === 'custom';
+  const draggable = _activeSort === 'custom';
 
   return `
     <div class="obj-card card ${obj.completed ? 'obj-complete' : ''}" data-id="${obj.id}" ${draggable ? 'draggable="true"' : ''}>
@@ -1135,11 +1102,7 @@ function renderObjCard(obj, linkedProjects) {
       </div>
       ${obj.description ? `<p class="obj-desc">${obj.description}</p>` : ''}
       <div class="obj-meta">
-        <span class="obj-cat">${catIcon} ${obj.category}</span>
-        <span class="obj-pct gold">${obj.progress}%</span>
-      </div>
-      <div class="obj-progress-bar-track">
-        <div class="obj-progress-fill ${obj.completed ? 'complete' : ''}" style="width:${obj.progress}%"></div>
+        ${renderCats(obj.category)}
       </div>
       ${linkedProjects.length > 0 ? `
         <div class="linked-tasks-list">
@@ -1150,17 +1113,6 @@ function renderObjCard(obj, linkedProjects) {
             </div>
           `).join('')}
         </div>
-      ` : ''}
-      ${milestones.length > 0 ? `
-        <ul class="milestone-list">
-          ${milestones.map((m, i) => `
-            <li class="milestone-item ${m.done ? 'done' : ''}">
-              <button class="milestone-check" data-idx="${i}">${m.done ? '✓' : '○'}</button>
-              <span>${m.text || m}</span>
-              ${!obj.completed ? `<button class="btn btn-xs btn-ghost milestone-to-project-btn" data-idx="${i}" title="Convert to project">→ Project</button>` : ''}
-            </li>
-          `).join('')}
-        </ul>
       ` : ''}
       ${!obj.completed ? `
         <div class="obj-card-footer">
