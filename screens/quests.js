@@ -13,6 +13,18 @@ const ALL_CATEGORIES   = ['health','mind','work','finance','relationships'];
 
 const TAB_FREQ = { task: 'daily', project: 'weekly' };
 
+const SORT_LABELS = {
+  custom:   '↕ Custom',
+  alpha:    'A–Z',
+  deadline: '📅 Due',
+  xp:       '⭐ XP',
+  category: '🏷 Cat',
+  created:  '🕐 Created',
+};
+
+// Module-level sort state, used by card renderers
+let _activeSort = 'custom';
+
 const PRESETS = [
   { title: 'Walk 10,000 Steps',                 category: 'health',        difficulty: 'medium', description: 'Hit your daily step goal' },
   { title: 'Eat 5 x Fruit and Veg',             category: 'health',        difficulty: 'medium', description: 'Five portions of fruit or veg today' },
@@ -36,19 +48,57 @@ function renderCats(category) {
   }).join('');
 }
 
+// ─── SORT / ORDER HELPERS ─────────────────────────────────────────────────────
+
+function getCustomOrder(userId, tab) {
+  try { return JSON.parse(localStorage.getItem(`life-rpg-order-${userId}-${tab}`)) || []; }
+  catch { return []; }
+}
+
+function saveCustomOrder(userId, tab, ids) {
+  localStorage.setItem(`life-rpg-order-${userId}-${tab}`, JSON.stringify(ids));
+}
+
+function applySort(items, sortBy, userId, tab) {
+  if (sortBy === 'custom') {
+    const order = getCustomOrder(userId, tab);
+    if (!order.length) return [...items];
+    const orderMap = Object.fromEntries(order.map((id, i) => [id, i]));
+    return [...items].sort((a, b) => (orderMap[a.id] ?? 9999) - (orderMap[b.id] ?? 9999));
+  }
+  const sorted = [...items];
+  if (sortBy === 'alpha')    return sorted.sort((a, b) => a.title.localeCompare(b.title));
+  if (sortBy === 'deadline') return sorted.sort((a, b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+  if (sortBy === 'xp')       return sorted.sort((a, b) => b.xp_reward - a.xp_reward);
+  if (sortBy === 'category') return sorted.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+  if (sortBy === 'created')  return sorted.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return items;
+}
+
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
 export async function renderQuests(userId, container, onXPUpdate) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
   const [quests, objectives] = await Promise.all([getQuests(userId), getObjectives(userId)]);
-  render(quests, objectives, container, userId, onXPUpdate, 'task');
+  render(quests, objectives, container, userId, onXPUpdate, 'task', 'custom');
 }
 
 // ─── MAIN RENDER ─────────────────────────────────────────────────────────────
 
-function render(quests, objectives, container, userId, onXPUpdate, activeTab = 'task') {
+function render(quests, objectives, container, userId, onXPUpdate, activeTab = 'task', activeSort = 'custom') {
+  _activeSort = activeSort;
+
   const tasks    = quests.filter(q => q.frequency !== 'weekly');
   const projects = quests.filter(q => q.frequency === 'weekly');
+
+  // Apply sort/order
+  const sortedTasks    = applySort(tasks,    activeSort, userId, 'task');
+  const sortedProjects = applySort(projects, activeSort, userId, 'project');
 
   // Build parent-child maps
   const tasksByProject    = groupBy(tasks,    q => q.parent_quest_id);
@@ -57,6 +107,15 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   const objectiveMap      = Object.fromEntries(objectives.map(o => [o.id, o]));
 
   const counts = { task: tasks.length, project: projects.length, longterm: objectives.length };
+
+  const sortBar = activeTab !== 'longterm' ? `
+    <div class="sort-bar">
+      <span class="sort-label">Sort:</span>
+      ${Object.entries(SORT_LABELS).map(([key, label]) => `
+        <button class="sort-btn ${activeSort === key ? 'active' : ''}" data-sort="${key}">${label}</button>
+      `).join('')}
+    </div>
+  ` : '';
 
   container.innerHTML = `
     <div class="quests-screen">
@@ -83,17 +142,19 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         </button>
       </div>
 
+      ${sortBar}
+
       ${activeTab === 'task' ? `
         <div class="quest-list" id="quest-list">
-          ${tasks.length === 0
+          ${sortedTasks.length === 0
             ? `<div class="empty-state">No tasks yet.<br>Add one or pick a preset!</div>`
-            : tasks.map(t => renderTaskCard(t, projectMap[t.parent_quest_id] || null)).join('')}
+            : sortedTasks.map(t => renderTaskCard(t, projectMap[t.parent_quest_id] || null)).join('')}
         </div>
       ` : activeTab === 'project' ? `
         <div class="quest-list" id="quest-list">
-          ${projects.length === 0
+          ${sortedProjects.length === 0
             ? `<div class="empty-state">No projects yet.<br>Add one to group your tasks!</div>`
-            : projects.map(p => renderProjectCard(p, tasksByProject[p.id] || [], objectiveMap[p.objective_id] || null)).join('')}
+            : sortedProjects.map(p => renderProjectCard(p, tasksByProject[p.id] || [], objectiveMap[p.objective_id] || null)).join('')}
         </div>
       ` : `
         <div class="obj-list" id="obj-list">
@@ -170,6 +231,49 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-quest-modal">Cancel</button>
           <button class="btn btn-primary" id="save-quest-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add task to project modal -->
+    <div class="modal-overlay hidden" id="project-task-modal">
+      <div class="modal modal-wide">
+        <h3 class="modal-title">Add Task to Project</h3>
+        <p class="modal-body ptm-project-label" id="ptm-project-label"></p>
+        <input class="input" id="ptm-title" placeholder="Task title…" maxlength="80" />
+        <div class="form-group">
+          <label class="form-label">Categories</label>
+          <div class="cat-chips" id="ptm-categories">
+            ${ALL_CATEGORIES.map(c => `
+              <button type="button" class="cat-chip ptm-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Difficulty</label>
+          <select class="input" id="ptm-difficulty">
+            <option value="fun">🎉 Fun (0 XP)</option>
+            <option value="quick">⚡ Quick (5 XP)</option>
+            <option value="easy">🟢 Easy (25 XP)</option>
+            <option value="medium" selected>🟡 Medium (50 XP)</option>
+            <option value="hard">🟠 Hard (100 XP)</option>
+            <option value="legendary">🔴 Legendary (250 XP)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deadline (optional)</label>
+          <div class="deadline-row">
+            <input class="input" id="ptm-deadline" placeholder="Pick a date…" />
+            <div class="deadline-quick-btns">
+              <button type="button" class="btn btn-xs btn-ghost" id="ptm-dl-today">Today</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="ptm-dl-week">Week</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="ptm-dl-clear">✕</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="close-ptm">Cancel</button>
+          <button class="btn btn-primary" id="save-ptm">Add Task</button>
         </div>
       </div>
     </div>
@@ -262,16 +366,30 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     </div>
   `;
 
-  let editingQuestId  = null;
-  let deletingQuestId = null;
-  let editingObjId    = null;
-  let progressObjId   = null;
-  let deletingObjId   = null;
-  let selectedCategories = ['health'];
+  let editingQuestId         = null;
+  let deletingQuestId        = null;
+  let editingObjId           = null;
+  let progressObjId          = null;
+  let deletingObjId          = null;
+  let selectedCategories     = ['health'];
+  let selectedPtmCategories  = ['health'];
+  let addingTaskToProjectId  = null;
+  let dragSrcId              = null;
+
+  // The current display list used by drag-drop handlers
+  let displayList = activeTab === 'task' ? sortedTasks : sortedProjects;
 
   // ─── TABS ────────────────────────────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => render(quests, objectives, container, userId, onXPUpdate, btn.dataset.tab));
+    btn.addEventListener('click', () => render(quests, objectives, container, userId, onXPUpdate, btn.dataset.tab, 'custom'));
+  });
+
+  // ─── SORT BAR ────────────────────────────────────────────────────────────
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sort = btn.dataset.sort;
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, sort);
+    });
   });
 
   // ─── ADD BUTTON ──────────────────────────────────────────────────────────
@@ -305,12 +423,18 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   }
 
   function syncCategoryChips() {
-    document.querySelectorAll('.cat-chip').forEach(chip => {
+    document.querySelectorAll('.cat-chip:not(.ptm-chip)').forEach(chip => {
       chip.classList.toggle('active', selectedCategories.includes(chip.dataset.cat));
     });
   }
 
-  document.querySelectorAll('.cat-chip').forEach(chip => {
+  function syncPtmCategoryChips() {
+    document.querySelectorAll('.ptm-chip').forEach(chip => {
+      chip.classList.toggle('active', selectedPtmCategories.includes(chip.dataset.cat));
+    });
+  }
+
+  document.querySelectorAll('.cat-chip:not(.ptm-chip)').forEach(chip => {
     chip.addEventListener('click', () => {
       const cat = chip.dataset.cat;
       if (selectedCategories.includes(cat)) {
@@ -319,6 +443,18 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         selectedCategories.push(cat);
       }
       syncCategoryChips();
+    });
+  });
+
+  document.querySelectorAll('.ptm-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cat = chip.dataset.cat;
+      if (selectedPtmCategories.includes(cat)) {
+        if (selectedPtmCategories.length > 1) selectedPtmCategories = selectedPtmCategories.filter(c => c !== cat);
+      } else {
+        selectedPtmCategories.push(cat);
+      }
+      syncPtmCategoryChips();
     });
   });
 
@@ -363,8 +499,64 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         quests.push(newQ);
       }
       document.getElementById('quest-modal').classList.add('hidden');
-      render(quests, objectives, container, userId, onXPUpdate, activeTab);
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
     } catch { showToast('Failed to save activity', 'error'); }
+  });
+
+  // ─── PROJECT TASK MODAL ──────────────────────────────────────────────────
+  function openProjectTaskModal(project) {
+    addingTaskToProjectId = project.id;
+    selectedPtmCategories = project.category
+      ? project.category.split(',').map(c => c.trim()).filter(Boolean)
+      : ['health'];
+    document.getElementById('ptm-project-label').textContent = `📋 ${project.title}`;
+    document.getElementById('ptm-title').value = '';
+    document.getElementById('ptm-difficulty').value = 'medium';
+    document.getElementById('ptm-deadline').value = '';
+    syncPtmCategoryChips();
+    document.getElementById('project-task-modal').classList.remove('hidden');
+    document.getElementById('ptm-title').focus();
+  }
+
+  const ptmDeadlineInput = document.getElementById('ptm-deadline');
+  attachCalendar(ptmDeadlineInput);
+  document.getElementById('ptm-dl-today').addEventListener('click', () => {
+    ptmDeadlineInput.value = todayStr();
+    ptmDeadlineInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.getElementById('ptm-dl-week').addEventListener('click', () => {
+    ptmDeadlineInput.value = endOfWeek();
+    ptmDeadlineInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.getElementById('ptm-dl-clear').addEventListener('click', () => { ptmDeadlineInput.value = ''; });
+
+  document.getElementById('close-ptm').addEventListener('click', () => {
+    document.getElementById('project-task-modal').classList.add('hidden');
+    addingTaskToProjectId = null;
+  });
+
+  document.getElementById('save-ptm').addEventListener('click', async () => {
+    const title      = document.getElementById('ptm-title').value.trim();
+    const difficulty = document.getElementById('ptm-difficulty').value;
+    const deadline   = document.getElementById('ptm-deadline').value || null;
+    const category   = selectedPtmCategories.join(',');
+
+    if (!title) { showToast('Please enter a title', 'error'); return; }
+    if (!addingTaskToProjectId) return;
+
+    try {
+      const newTask = await createQuest(userId, {
+        title, category, difficulty, deadline,
+        frequency: 'daily',
+        parent_quest_id: addingTaskToProjectId,
+        is_recurring: false,
+      });
+      quests.push(newTask);
+      document.getElementById('project-task-modal').classList.add('hidden');
+      addingTaskToProjectId = null;
+      showToast(`Task "${title}" added!`, 'success');
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
+    } catch { showToast('Failed to add task', 'error'); }
   });
 
   // ─── OBJ MODAL ───────────────────────────────────────────────────────────
@@ -405,7 +597,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         objectives.unshift(await createObjective(userId, payload));
       }
       document.getElementById('obj-modal').classList.add('hidden');
-      render(quests, objectives, container, userId, onXPUpdate, 'longterm');
+      render(quests, objectives, container, userId, onXPUpdate, 'longterm', activeSort);
     } catch { showToast('Failed to save quest', 'error'); }
   });
 
@@ -435,10 +627,67 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     });
   });
 
-  // ─── QUEST LIST ACTIONS ──────────────────────────────────────────────────
+  // ─── DRAG AND DROP ───────────────────────────────────────────────────────
   const questList = document.getElementById('quest-list');
+  if (questList && activeSort === 'custom') {
+    questList.addEventListener('dragstart', e => {
+      const card = e.target.closest('.quest-card');
+      if (!card) return;
+      dragSrcId = card.dataset.id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragSrcId);
+    });
+
+    questList.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const card = e.target.closest('.quest-card');
+      if (!card || card.dataset.id === dragSrcId) return;
+      document.querySelectorAll('.quest-card').forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    });
+
+    questList.addEventListener('dragleave', e => {
+      const card = e.target.closest('.quest-card');
+      if (card) card.classList.remove('drag-over');
+    });
+
+    questList.addEventListener('dragend', () => {
+      document.querySelectorAll('.quest-card').forEach(c => c.classList.remove('dragging', 'drag-over'));
+      dragSrcId = null;
+    });
+
+    questList.addEventListener('drop', e => {
+      e.preventDefault();
+      const targetCard = e.target.closest('.quest-card');
+      if (!targetCard || !dragSrcId || targetCard.dataset.id === dragSrcId) return;
+
+      const srcIdx = displayList.findIndex(q => q.id === dragSrcId);
+      const tgtIdx = displayList.findIndex(q => q.id === targetCard.dataset.id);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+
+      const [moved] = displayList.splice(srcIdx, 1);
+      displayList.splice(tgtIdx, 0, moved);
+
+      saveCustomOrder(userId, activeTab, displayList.map(q => q.id));
+      dragSrcId = null;
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, 'custom');
+    });
+  }
+
+  // ─── QUEST LIST ACTIONS ──────────────────────────────────────────────────
   if (questList) {
     questList.addEventListener('click', async (e) => {
+      // Add task to project button
+      if (e.target.closest('.add-task-btn')) {
+        const card = e.target.closest('.quest-card');
+        if (!card) return;
+        const project = quests.find(q => q.id === card.dataset.id);
+        if (project) openProjectTaskModal(project);
+        return;
+      }
+
       const card = e.target.closest('.quest-card');
       if (!card) return;
       const quest = quests.find(q => q.id === card.dataset.id);
@@ -454,7 +703,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           if (result.leveledUp) showLevelUpBanner(result.newLevel, result.className);
           if (onXPUpdate) onXPUpdate(result.profile);
           if (quest.xp_reward > 0) showToast(`+${quest.xp_reward} XP earned!`, 'success');
-          render(quests, objectives, container, userId, onXPUpdate, activeTab);
+          render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
         } catch {
           showToast('Failed to complete activity', 'error');
           btn.disabled = false;
@@ -482,7 +731,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       quests.splice(quests.findIndex(q => q.id === deletingQuestId), 1);
       document.getElementById('delete-quest-modal').classList.add('hidden');
       deletingQuestId = null;
-      render(quests, objectives, container, userId, onXPUpdate, activeTab);
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
     } catch { showToast('Failed to delete activity', 'error'); }
   });
 
@@ -508,6 +757,36 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         document.getElementById('progress-modal').classList.remove('hidden');
         return;
       }
+
+      // Milestone → Project conversion
+      if (e.target.closest('.milestone-to-project-btn')) {
+        const btn = e.target.closest('.milestone-to-project-btn');
+        const idx = parseInt(btn.dataset.idx);
+        const milestone = (obj.milestones || [])[idx];
+        if (!milestone) return;
+        const milestoneText = milestone.text || milestone;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const newProject = await createQuest(userId, {
+            title: milestoneText,
+            category: obj.category || 'health',
+            difficulty: 'medium',
+            frequency: 'weekly',
+            objective_id: obj.id,
+            is_recurring: false,
+          });
+          quests.push(newProject);
+          showToast(`"${milestoneText}" created as a project!`, 'success');
+          render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
+        } catch {
+          showToast('Failed to create project', 'error');
+          btn.disabled = false;
+          btn.textContent = '→ Project';
+        }
+        return;
+      }
+
       if (e.target.closest('.milestone-check')) {
         const idx = parseInt(e.target.closest('.milestone-check').dataset.idx);
         const milestones = [...(obj.milestones || [])];
@@ -515,7 +794,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         try {
           const updated = await updateObjective(obj.id, { milestones });
           objectives.splice(objectives.findIndex(o => o.id === obj.id), 1, updated);
-          render(quests, objectives, container, userId, onXPUpdate, activeTab);
+          render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
         } catch { showToast('Failed to update milestone', 'error'); }
       }
     });
@@ -538,7 +817,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       objectives.splice(objectives.findIndex(o => o.id === progressObjId), 1, updated);
       document.getElementById('progress-modal').classList.add('hidden');
       progressObjId = null;
-      render(quests, objectives, container, userId, onXPUpdate, 'longterm');
+      render(quests, objectives, container, userId, onXPUpdate, 'longterm', activeSort);
       if (clamped >= 100) showToast('Quest complete! 🎉', 'success');
     } catch { showToast('Failed to update progress', 'error'); }
   });
@@ -554,7 +833,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       objectives.splice(objectives.findIndex(o => o.id === deletingObjId), 1);
       document.getElementById('delete-obj-modal').classList.add('hidden');
       deletingObjId = null;
-      render(quests, objectives, container, userId, onXPUpdate, 'longterm');
+      render(quests, objectives, container, userId, onXPUpdate, 'longterm', activeSort);
     } catch { showToast('Failed to delete quest', 'error'); }
   });
 
@@ -589,9 +868,11 @@ function renderTaskCard(quest, parentProject) {
   const deadlineEl = quest.deadline
     ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(quest.deadline)}</span>`
     : '';
+  const draggable = _activeSort === 'custom';
 
   return `
-    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${quest.id}">
+    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${quest.id}" ${draggable ? 'draggable="true"' : ''}>
+      ${draggable ? `<span class="drag-handle" title="Drag to reorder">⠿</span>` : ''}
       <div class="quest-main">
         <div class="quest-left">
           <button class="complete-btn ${done ? 'done' : ''}" title="${done ? 'Complete again' : 'Complete'}">
@@ -627,9 +908,11 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
   const deadlineEl = project.deadline
     ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(project.deadline)}</span>`
     : '';
+  const draggable = _activeSort === 'custom';
 
   return `
-    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${project.id}">
+    <div class="quest-card card ${done ? 'quest-done' : ''} ${overdue ? 'quest-overdue' : ''}" data-id="${project.id}" ${draggable ? 'draggable="true"' : ''}>
+      ${draggable ? `<span class="drag-handle" title="Drag to reorder">⠿</span>` : ''}
       <div class="quest-main">
         <div class="quest-left">
           <button class="complete-btn ${done ? 'done' : ''}" title="${done ? 'Complete again' : 'Complete'}">
@@ -659,6 +942,7 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
                 `).join('')}
               </div>
             ` : ''}
+            <button class="btn btn-ghost btn-sm add-task-btn">+ Add Task</button>
           </div>
         </div>
         <div class="quest-actions">
@@ -731,6 +1015,7 @@ function renderObjCard(obj, linkedProjects) {
             <li class="milestone-item ${m.done ? 'done' : ''}">
               <button class="milestone-check" data-idx="${i}">${m.done ? '✓' : '○'}</button>
               <span>${m.text || m}</span>
+              ${!obj.completed ? `<button class="btn btn-xs btn-ghost milestone-to-project-btn" data-idx="${i}" title="Convert to project">→ Project</button>` : ''}
             </li>
           `).join('')}
         </ul>
