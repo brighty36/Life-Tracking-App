@@ -3,7 +3,7 @@
 import { getRewards, createReward, deleteReward, redeemReward, getProfile } from '../supabase.js';
 import { showToast, launchConfetti } from '../utils/animations.js';
 
-const TIER_ICONS = { small: '🥉', medium: '🥈', large: '🥇', legendary: '👑' };
+const TIER_LABELS = { small: 'S', medium: 'M', large: 'L', legendary: 'Legend' };
 const TIER_ORDER = { small: 0, medium: 1, large: 2, legendary: 3 };
 
 export async function renderRewards(userId, container, onXPUpdate) {
@@ -24,7 +24,7 @@ function render(rewards, profile, container, userId, onXPUpdate) {
       <div class="screen-header">
         <div>
           <h2 class="screen-title">Reward Shop</h2>
-          <p class="screen-sub xp-balance">💰 <span id="xp-balance" class="gold">${bank.toLocaleString()}</span> XP available</p>
+          <p class="screen-sub xp-balance"><span id="xp-balance" class="gold">${bank.toLocaleString()}</span> XP available</p>
         </div>
         <button class="btn btn-primary" id="add-reward-btn">+ Add Reward</button>
       </div>
@@ -46,10 +46,10 @@ function render(rewards, profile, container, userId, onXPUpdate) {
           <div class="form-group">
             <label class="form-label">Tier</label>
             <select class="input" id="reward-tier">
-              <option value="small">🥉 Small</option>
-              <option value="medium">🥈 Medium</option>
-              <option value="large">🥇 Large</option>
-              <option value="legendary">👑 Legendary</option>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="legendary">Legendary</option>
             </select>
           </div>
           <div class="form-group">
@@ -71,7 +71,7 @@ function render(rewards, profile, container, userId, onXPUpdate) {
         <div class="redeem-preview" id="redeem-preview"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="cancel-redeem">Cancel</button>
-          <button class="btn btn-gold" id="confirm-redeem">Redeem ✨</button>
+          <button class="btn btn-gold" id="confirm-redeem">Redeem</button>
         </div>
       </div>
     </div>
@@ -132,7 +132,7 @@ function render(rewards, profile, container, userId, onXPUpdate) {
       if (bank < reward.xp_cost) return;
       redeemingReward = reward;
       document.getElementById('redeem-preview').innerHTML = `
-        <span class="reward-tier-icon">${TIER_ICONS[reward.tier]}</span>
+        <span class="reward-tier-icon tier-${reward.tier}">${TIER_LABELS[reward.tier]}</span>
         <strong>${reward.title}</strong>
         <span class="gold">−${reward.xp_cost.toLocaleString()} XP</span>
       `;
@@ -162,7 +162,7 @@ function render(rewards, profile, container, userId, onXPUpdate) {
       if (onXPUpdate) onXPUpdate(updatedProfile);
       document.getElementById('redeem-modal').classList.add('hidden');
       launchConfetti(150);
-      showToast(`Enjoy your ${redeemingReward.title}! 🎉`, 'success');
+      showToast(`Enjoy your ${redeemingReward.title}!`, 'success');
       redeemingReward = null;
       render(rewards, updatedProfile, container, userId, onXPUpdate);
     } catch (err) {
@@ -201,8 +201,8 @@ function renderRewardCard(reward, bank) {
   return `
     <div class="reward-card card tier-${reward.tier} ${canAfford ? '' : 'unaffordable'}" data-id="${reward.id}">
       <div class="reward-card-header">
-        <span class="reward-tier-icon">${TIER_ICONS[reward.tier]}</span>
-        <button class="icon-btn delete-reward-btn" title="Delete">🗑️</button>
+        <span class="reward-tier-icon tier-${reward.tier}">${TIER_LABELS[reward.tier]}</span>
+        <button class="icon-btn delete-reward-btn" title="Delete">X</button>
       </div>
       <div class="reward-title">${reward.title}</div>
       ${reward.description ? `<div class="reward-desc">${reward.description}</div>` : ''}

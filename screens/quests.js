@@ -6,19 +6,19 @@ import { showToast, showLevelUpBanner, showStatBoost } from '../utils/animations
 import { attachCalendar, todayStr, endOfWeek } from '../utils/calendar.js';
 
 const DIFFICULTY_XP    = { fun: 0, quick: 5, easy: 25, medium: 50, hard: 100, legendary: 250 };
-const DIFFICULTY_ICONS = { fun: '🎉', quick: '⚡', easy: '🟢', medium: '🟡', hard: '🟠', legendary: '🔴' };
-const CATEGORY_ICONS   = { health: '❤️', mind: '🧠', work: '💼', finance: '💰', relationships: '🤝' };
+const DIFFICULTY_ICONS = { fun: '', quick: '', easy: '', medium: '', hard: '', legendary: '' };
+const CATEGORY_ICONS   = { health: '', mind: '', work: '', finance: '', relationships: '' };
 const ALL_CATEGORIES   = ['health','mind','work','finance','relationships'];
 
 const TAB_FREQ = { task: 'daily', project: 'weekly' };
 
 const SORT_LABELS = {
-  custom:   '↕ Custom',
+  custom:   'Custom',
   alpha:    'A–Z',
-  deadline: '📅 Due',
-  xp:       '⭐ XP',
-  category: '🏷 Cat',
-  created:  '🕐 Created',
+  deadline: 'Due',
+  xp:       'XP',
+  category: 'Cat',
+  created:  'Created',
 };
 
 // Module-level sort state, used by card renderers
@@ -43,7 +43,7 @@ function renderCats(category) {
   if (!category) return '';
   return category.split(',').map(c => {
     const k = c.trim();
-    return `<span class="quest-cat">${CATEGORY_ICONS[k] || '📋'} ${k}</span>`;
+    return `<span class="quest-cat">${k}</span>`;
   }).join('');
 }
 
@@ -109,7 +109,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   const counts = { task: tasks.length, project: projects.length, longterm: objectives.length };
 
   const sortBarEntries = activeTab === 'longterm'
-    ? [['custom','↕ Custom'],['alpha','A–Z'],['category','🏷 Cat'],['created','🕐 Created']]
+    ? [['custom','Custom'],['alpha','A–Z'],['category','Cat'],['created','Created']]
     : Object.entries(SORT_LABELS);
   const sortBar = `
     <div class="sort-bar">
@@ -128,20 +128,20 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <p class="screen-sub">${tabSubtitle(activeTab, counts)}</p>
         </div>
         <div class="quest-header-btns">
-          ${activeTab !== 'longterm' ? `<button class="btn btn-ghost btn-sm" id="presets-btn">⚡ Presets</button>` : ''}
+          ${activeTab !== 'longterm' ? `<button class="btn btn-ghost btn-sm" id="presets-btn">Presets</button>` : ''}
           <button class="btn btn-primary" id="add-main-btn">+ Add</button>
         </div>
       </div>
 
       <div class="tab-row">
         <button class="tab-btn ${activeTab==='task'     ? 'active':''}" data-tab="task">
-          ✅ Tasks <span class="tab-count">${counts.task}</span>
+          Tasks <span class="tab-count">${counts.task}</span>
         </button>
         <button class="tab-btn ${activeTab==='project'  ? 'active':''}" data-tab="project">
-          📋 Projects <span class="tab-count">${counts.project}</span>
+          Projects <span class="tab-count">${counts.project}</span>
         </button>
         <button class="tab-btn ${activeTab==='longterm' ? 'active':''}" data-tab="longterm">
-          🎯 Quests <span class="tab-count">${counts.longterm}</span>
+          Quests <span class="tab-count">${counts.longterm}</span>
         </button>
       </div>
 
@@ -179,7 +179,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <label class="form-label">Categories</label>
           <div class="cat-chips" id="quest-categories">
             ${ALL_CATEGORIES.map(c => `
-              <button type="button" class="cat-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+              <button type="button" class="cat-chip" data-cat="${c}">${c}</button>
             `).join('')}
           </div>
         </div>
@@ -188,12 +188,12 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <div class="form-group">
             <label class="form-label">Difficulty</label>
             <select class="input" id="quest-difficulty">
-              <option value="fun">🎉 Fun (0 XP)</option>
-              <option value="quick">⚡ Quick (5 XP)</option>
-              <option value="easy">🟢 Easy (25 XP)</option>
-              <option value="medium" selected>🟡 Medium (50 XP)</option>
-              <option value="hard">🟠 Hard (100 XP)</option>
-              <option value="legendary">🔴 Legendary (250 XP)</option>
+              <option value="fun">Fun (0 XP)</option>
+              <option value="quick">Quick (5 XP)</option>
+              <option value="easy">Easy (25 XP)</option>
+              <option value="medium" selected>Medium (50 XP)</option>
+              <option value="hard">Hard (100 XP)</option>
+              <option value="legendary">Legendary (250 XP)</option>
             </select>
           </div>
           <div class="form-group">
@@ -248,19 +248,19 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <label class="form-label">Categories</label>
           <div class="cat-chips" id="ptm-categories">
             ${ALL_CATEGORIES.map(c => `
-              <button type="button" class="cat-chip ptm-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+              <button type="button" class="cat-chip ptm-chip" data-cat="${c}">${c}</button>
             `).join('')}
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Difficulty</label>
           <select class="input" id="ptm-difficulty">
-            <option value="fun">🎉 Fun (0 XP)</option>
-            <option value="quick">⚡ Quick (5 XP)</option>
-            <option value="easy">🟢 Easy (25 XP)</option>
-            <option value="medium" selected>🟡 Medium (50 XP)</option>
-            <option value="hard">🟠 Hard (100 XP)</option>
-            <option value="legendary">🔴 Legendary (250 XP)</option>
+            <option value="fun">Fun (0 XP)</option>
+            <option value="quick">Quick (5 XP)</option>
+            <option value="easy">Easy (25 XP)</option>
+            <option value="medium" selected>Medium (50 XP)</option>
+            <option value="hard">Hard (100 XP)</option>
+            <option value="legendary">Legendary (250 XP)</option>
           </select>
         </div>
         <div class="form-group">
@@ -292,7 +292,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <label class="form-label">Categories</label>
           <div class="cat-chips" id="paq-categories">
             ${ALL_CATEGORIES.map(c => `
-              <button type="button" class="cat-chip paq-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+              <button type="button" class="cat-chip paq-chip" data-cat="${c}">${c}</button>
             `).join('')}
           </div>
         </div>
@@ -300,12 +300,12 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <div class="form-group">
             <label class="form-label">Difficulty</label>
             <select class="input" id="paq-difficulty">
-              <option value="fun">🎉 Fun (0 XP)</option>
-              <option value="quick">⚡ Quick (5 XP)</option>
-              <option value="easy">🟢 Easy (25 XP)</option>
-              <option value="medium" selected>🟡 Medium (50 XP)</option>
-              <option value="hard">🟠 Hard (100 XP)</option>
-              <option value="legendary">🔴 Legendary (250 XP)</option>
+              <option value="fun">Fun (0 XP)</option>
+              <option value="quick">Quick (5 XP)</option>
+              <option value="easy">Easy (25 XP)</option>
+              <option value="medium" selected>Medium (50 XP)</option>
+              <option value="hard">Hard (100 XP)</option>
+              <option value="legendary">Legendary (250 XP)</option>
             </select>
           </div>
           <div class="form-group">
@@ -337,7 +337,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <label class="form-label">Categories</label>
           <div class="cat-chips" id="obj-categories">
             ${ALL_CATEGORIES.map(c => `
-              <button type="button" class="cat-chip obj-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+              <button type="button" class="cat-chip obj-chip" data-cat="${c}">${c}</button>
             `).join('')}
           </div>
         </div>
@@ -357,7 +357,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     <!-- Presets modal -->
     <div class="modal-overlay hidden" id="presets-modal">
       <div class="modal modal-wide">
-        <h3 class="modal-title">⚡ Preset Missions</h3>
+        <h3 class="modal-title">Preset Missions</h3>
         <p class="modal-body">Tap a preset to add it instantly.</p>
         <div class="preset-list">
           ${PRESETS.map((p, i) => renderPresetCard(p, i, quests)).join('')}
@@ -576,7 +576,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     selectedPtmCategories = project.category
       ? project.category.split(',').map(c => c.trim()).filter(Boolean)
       : ['health'];
-    document.getElementById('ptm-project-label').textContent = `📋 ${project.title}`;
+    document.getElementById('ptm-project-label').textContent = `${project.title}`;
     document.getElementById('ptm-title').value = '';
     document.getElementById('ptm-difficulty').value = 'medium';
     document.getElementById('ptm-deadline').value = '';
@@ -632,7 +632,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     selectedPaqCategories = obj.category
       ? obj.category.split(',').map(c => c.trim()).filter(Boolean)
       : ['health'];
-    document.getElementById('paq-quest-label').textContent = `🎯 ${obj.title}`;
+    document.getElementById('paq-quest-label').textContent = obj.title;
     document.getElementById('paq-title').value = '';
     document.getElementById('paq-desc').value = '';
     document.getElementById('paq-difficulty').value = 'medium';
@@ -973,9 +973,9 @@ function tabSubtitle(tab, counts) {
 function renderTaskCard(quest, parentProject) {
   const done    = isDone(quest);
   const overdue = isOverdue(quest);
-  const diffBadge = `<span class="badge badge-${quest.difficulty}">${DIFFICULTY_ICONS[quest.difficulty] || ''} ${quest.difficulty}</span>`;
+  const diffBadge = `<span class="badge badge-${quest.difficulty}">${quest.difficulty}</span>`;
   const deadlineEl = quest.deadline
-    ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(quest.deadline)}</span>`
+    ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">${formatDate(quest.deadline)}</span>`
     : '';
   const draggable = _activeSort === 'custom';
 
@@ -991,7 +991,7 @@ function renderTaskCard(quest, parentProject) {
             <div class="quest-title-row">
               <span class="quest-title">${quest.title}</span>
             </div>
-            ${parentProject ? `<div class="link-parent-tag">📋 ${parentProject.title}</div>` : ''}
+            ${parentProject ? `<div class="link-parent-tag">${parentProject.title}</div>` : ''}
             ${quest.description ? `<div class="quest-description">${quest.description}</div>` : ''}
             <div class="quest-meta">
               ${renderCats(quest.category)}
@@ -1002,8 +1002,8 @@ function renderTaskCard(quest, parentProject) {
           </div>
         </div>
         <div class="quest-actions">
-          <button class="icon-btn edit-quest-btn" title="Edit">✏️</button>
-          <button class="icon-btn delete-quest-btn" title="Delete">🗑️</button>
+          <button class="icon-btn edit-quest-btn" title="Edit">Edit</button>
+          <button class="icon-btn delete-quest-btn" title="Delete">Del</button>
         </div>
       </div>
     </div>
@@ -1013,9 +1013,9 @@ function renderTaskCard(quest, parentProject) {
 function renderProjectCard(project, linkedTasks, parentObjective) {
   const done    = isDone(project);
   const overdue = isOverdue(project);
-  const diffBadge = `<span class="badge badge-${project.difficulty}">${DIFFICULTY_ICONS[project.difficulty] || ''} ${project.difficulty}</span>`;
+  const diffBadge = `<span class="badge badge-${project.difficulty}">${project.difficulty}</span>`;
   const deadlineEl = project.deadline
-    ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(project.deadline)}</span>`
+    ? `<span class="quest-deadline ${overdue ? 'overdue' : ''}">${formatDate(project.deadline)}</span>`
     : '';
   const draggable = _activeSort === 'custom';
 
@@ -1030,9 +1030,9 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
           <div class="quest-details">
             <div class="quest-title-row">
               <span class="quest-title">${project.title}</span>
-              ${linkedTasks.length > 0 ? `<span class="link-count-badge">📑 ${linkedTasks.length} task${linkedTasks.length !== 1 ? 's' : ''}</span>` : ''}
+              ${linkedTasks.length > 0 ? `<span class="link-count-badge">${linkedTasks.length} task${linkedTasks.length !== 1 ? 's' : ''}</span>` : ''}
             </div>
-            ${parentObjective ? `<div class="link-parent-tag">🎯 ${parentObjective.title}</div>` : ''}
+            ${parentObjective ? `<div class="link-parent-tag">${parentObjective.title}</div>` : ''}
             ${project.description ? `<div class="quest-description">${project.description}</div>` : ''}
             <div class="quest-meta">
               ${renderCats(project.category)}
@@ -1055,8 +1055,8 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
           </div>
         </div>
         <div class="quest-actions">
-          <button class="icon-btn edit-quest-btn" title="Edit">✏️</button>
-          <button class="icon-btn delete-quest-btn" title="Delete">🗑️</button>
+          <button class="icon-btn edit-quest-btn" title="Edit">Edit</button>
+          <button class="icon-btn delete-quest-btn" title="Delete">Del</button>
         </div>
       </div>
     </div>
@@ -1065,13 +1065,13 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
 
 function renderPresetCard(preset, idx, existingQuests) {
   const alreadyAdded = existingQuests.some(q => q.title === preset.title);
-  const catIcon = CATEGORY_ICONS[preset.category] || '📋';
+  const catIcon = '';
   return `
     <div class="preset-card">
       <div class="preset-info">
-        <div class="preset-title">${catIcon} ${preset.title}</div>
+        <div class="preset-title">${preset.title}</div>
         <div class="preset-meta">
-          <span class="badge badge-${preset.difficulty}">${DIFFICULTY_ICONS[preset.difficulty]} ${preset.difficulty}</span>
+          <span class="badge badge-${preset.difficulty}">${preset.difficulty}</span>
           ${DIFFICULTY_XP[preset.difficulty] > 0 ? `<span class="gold" style="font-size:0.75rem">+${DIFFICULTY_XP[preset.difficulty]} XP</span>` : ''}
         </div>
         ${preset.description ? `<div class="preset-desc">${preset.description}</div>` : ''}
@@ -1093,11 +1093,11 @@ function renderObjCard(obj, linkedProjects) {
           ${draggable ? `<span class="drag-handle" title="Drag to reorder">⠿</span>` : ''}
           <span class="obj-title">${obj.title}</span>
           ${obj.completed ? '<span class="badge badge-legendary">✓ Complete</span>' : ''}
-          ${linkedProjects.length > 0 ? `<span class="link-count-badge">📋 ${linkedProjects.length} project${linkedProjects.length !== 1 ? 's' : ''}</span>` : ''}
+          ${linkedProjects.length > 0 ? `<span class="link-count-badge">${linkedProjects.length} project${linkedProjects.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
         <div class="obj-actions">
-          <button class="icon-btn edit-obj-btn" title="Edit">✏️</button>
-          <button class="icon-btn delete-obj-btn" title="Delete">🗑️</button>
+          <button class="icon-btn edit-obj-btn" title="Edit">Edit</button>
+          <button class="icon-btn delete-obj-btn" title="Delete">Del</button>
         </div>
       </div>
       ${obj.description ? `<p class="obj-desc">${obj.description}</p>` : ''}

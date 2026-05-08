@@ -4,11 +4,11 @@ import { getReflection, upsertReflection, getReflectionHistory } from '../supaba
 import { showToast } from '../utils/animations.js';
 
 const MOODS = [
-  { value: 1, emoji: '😞', label: 'Rough' },
-  { value: 2, emoji: '😕', label: 'Low' },
-  { value: 3, emoji: '😐', label: 'Okay' },
-  { value: 4, emoji: '🙂', label: 'Good' },
-  { value: 5, emoji: '😄', label: 'Great' },
+  { value: 1, label: 'Rough' },
+  { value: 2, label: 'Low' },
+  { value: 3, label: 'Okay' },
+  { value: 4, label: 'Good' },
+  { value: 5, label: 'Great' },
 ];
 
 export async function renderReflection(userId, container) {
@@ -45,7 +45,6 @@ function render(userId, container, todayStr, existing, history) {
           <div class="mood-picker" id="mood-picker">
             ${MOODS.map(m => `
               <button class="mood-btn ${savedMood === m.value ? 'selected' : ''}" data-mood="${m.value}" title="${m.label}">
-                <span class="mood-emoji">${m.emoji}</span>
                 <span class="mood-label">${m.label}</span>
               </button>
             `).join('')}
@@ -54,7 +53,7 @@ function render(userId, container, todayStr, existing, history) {
 
         <!-- Things learnt -->
         <div class="reflection-field">
-          <label class="reflection-label">📚 Things I learnt today</label>
+          <label class="reflection-label">Things I learnt today</label>
           <textarea
             class="input textarea reflection-textarea"
             id="things-learnt"
@@ -65,7 +64,7 @@ function render(userId, container, todayStr, existing, history) {
 
         <!-- Proud of -->
         <div class="reflection-field">
-          <label class="reflection-label">🌟 Things I am proud of</label>
+          <label class="reflection-label">Things I am proud of</label>
           <textarea
             class="input textarea reflection-textarea"
             id="proud-of"
@@ -76,7 +75,7 @@ function render(userId, container, todayStr, existing, history) {
 
         <!-- Troubled by -->
         <div class="reflection-field">
-          <label class="reflection-label">💭 Things that troubled me</label>
+          <label class="reflection-label">Things that troubled me</label>
           <textarea
             class="input textarea reflection-textarea"
             id="troubled-by"
@@ -87,7 +86,7 @@ function render(userId, container, todayStr, existing, history) {
 
         <!-- Grateful for -->
         <div class="reflection-field">
-          <label class="reflection-label">🙏 Things I am grateful for</label>
+          <label class="reflection-label">Things I am grateful for</label>
           <textarea
             class="input textarea reflection-textarea"
             id="grateful-for"
@@ -145,7 +144,7 @@ function render(userId, container, todayStr, existing, history) {
       const saved = await upsertReflection(userId, {
         date: todayStr, things_learnt, proud_of, troubled_by, grateful_for, mood,
       });
-      showToast('Reflection saved! ✨', 'success');
+      showToast('Reflection saved!', 'success');
 
       // Update history list with saved entry
       const histIdx = history.findIndex(r => r.date === todayStr);
@@ -168,27 +167,27 @@ function renderHistoryCard(reflection) {
     <details class="history-card card">
       <summary class="history-summary">
         <span class="history-date">${formatDisplayDate(reflection.date)}</span>
-        ${mood ? `<span class="history-mood" title="${mood.label}">${mood.emoji}</span>` : ''}
+        ${mood ? `<span class="history-mood">${mood.label}</span>` : ''}
       </summary>
       <div class="history-body">
         ${reflection.things_learnt ? `
           <div class="history-section">
-            <div class="history-section-label">📚 Learnt</div>
+            <div class="history-section-label">Learnt</div>
             <p>${escapeHtml(reflection.things_learnt)}</p>
           </div>` : ''}
         ${reflection.proud_of ? `
           <div class="history-section">
-            <div class="history-section-label">🌟 Proud of</div>
+            <div class="history-section-label">Proud of</div>
             <p>${escapeHtml(reflection.proud_of)}</p>
           </div>` : ''}
         ${reflection.troubled_by ? `
           <div class="history-section">
-            <div class="history-section-label">💭 Troubled by</div>
+            <div class="history-section-label">Troubled by</div>
             <p>${escapeHtml(reflection.troubled_by)}</p>
           </div>` : ''}
         ${reflection.grateful_for ? `
           <div class="history-section">
-            <div class="history-section-label">🙏 Grateful for</div>
+            <div class="history-section-label">Grateful for</div>
             <p>${escapeHtml(reflection.grateful_for)}</p>
           </div>` : ''}
       </div>

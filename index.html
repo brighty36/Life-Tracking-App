@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Life RPG — Gamify your life. Earn XP for real-world achievements." />
-  <title>Life RPG</title>
+  <meta name="description" content="Life Tracker — Earn XP for real-world achievements." />
+  <title>Life Tracker</title>
   <link rel="stylesheet" href="styles.css" />
 
   <!-- Supabase CDN -->
@@ -25,15 +25,14 @@
   <!-- ─── PROFILE SELECTOR SCREEN ──────────────────────────────────────────── -->
   <div id="profile-screen">
     <div class="profile-selector">
-      <div class="profile-selector-logo">⚔️</div>
-      <h1 class="profile-selector-title">Life RPG</h1>
-      <p class="profile-selector-subtitle">Choose your adventurer</p>
+      <h1 class="profile-selector-title">Life Tracker</h1>
+      <p class="profile-selector-subtitle">Select profile</p>
 
       <div class="profile-cards" id="profile-cards">
         <div class="loading-spinner"></div>
       </div>
 
-      <button class="btn btn-gold profile-new-btn" id="new-profile-btn">+ New Profile</button>
+      <button class="btn btn-primary profile-new-btn" id="new-profile-btn">+ New Profile</button>
     </div>
 
     <!-- New profile modal -->
@@ -47,8 +46,6 @@
           maxlength="30"
           autocomplete="off"
         />
-        <p class="modal-body">Pick an avatar:</p>
-        <div class="avatar-grid" id="new-profile-avatar-grid"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="cancel-new-profile">Cancel</button>
           <button class="btn btn-primary" id="confirm-new-profile">Create</button>
@@ -62,19 +59,19 @@
 
     <!-- HEADER -->
     <header class="app-header">
-      <span class="header-brand">⚔️ Life RPG</span>
+      <span class="header-brand">Life Tracker</span>
 
       <div class="header-profile">
-        <span class="header-name" id="header-name">Adventurer</span>
+        <span class="header-name" id="header-name">Profile</span>
         <div class="header-xp-wrapper">
-          <span class="header-xp-block">⚡ <span id="header-daily-xp">0</span> today</span>
-          <span class="header-xp-block">💎 <span id="header-lifetime-xp">0</span> total</span>
+          <span class="header-xp-block"><span id="header-daily-xp">0</span> today</span>
+          <span class="header-xp-block"><span id="header-lifetime-xp">0</span> total</span>
         </div>
       </div>
 
       <div class="header-actions">
-        <button id="theme-toggle" title="Toggle theme">☀️</button>
-        <button id="switch-profile-btn" title="Switch profile">Switch Profile</button>
+        <button id="theme-toggle" title="Toggle theme">Dark</button>
+        <button id="switch-profile-btn" title="Switch profile">Switch</button>
       </div>
     </header>
 
@@ -83,24 +80,12 @@
 
       <!-- SIDEBAR NAV (desktop) -->
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-screen="character">
-          <span class="nav-icon">🧙</span> Character
-        </button>
-        <button class="nav-item" data-screen="quests">
-          <span class="nav-icon">⚔️</span> Activity
-        </button>
-        <button class="nav-item" data-screen="rewards">
-          <span class="nav-icon">🎁</span> Rewards
-        </button>
-        <button class="nav-item" data-screen="journal">
-          <span class="nav-icon">📖</span> Journal
-        </button>
-        <button class="nav-item" data-screen="reflection">
-          <span class="nav-icon">🪞</span> Reflection
-        </button>
-        <button class="nav-item" data-screen="budget">
-          <span class="nav-icon">💳</span> Budget
-        </button>
+        <button class="nav-item active" data-screen="character">Character</button>
+        <button class="nav-item" data-screen="quests">Activity</button>
+        <button class="nav-item" data-screen="rewards">Rewards</button>
+        <button class="nav-item" data-screen="journal">Journal</button>
+        <button class="nav-item" data-screen="reflection">Reflection</button>
+        <button class="nav-item" data-screen="budget">Budget</button>
       </nav>
 
       <!-- MAIN CONTENT -->
@@ -113,27 +98,21 @@
     <!-- BOTTOM NAV (mobile) -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-screen="character">
-        <span class="nav-icon">🧙</span>
         <span>Hero</span>
       </button>
       <button class="nav-item" data-screen="quests">
-        <span class="nav-icon">⚔️</span>
         <span>Activity</span>
       </button>
       <button class="nav-item" data-screen="rewards">
-        <span class="nav-icon">🎁</span>
         <span>Rewards</span>
       </button>
       <button class="nav-item" data-screen="journal">
-        <span class="nav-icon">📖</span>
         <span>Journal</span>
       </button>
       <button class="nav-item" data-screen="reflection">
-        <span class="nav-icon">🪞</span>
         <span>Reflect</span>
       </button>
       <button class="nav-item" data-screen="budget">
-        <span class="nav-icon">💳</span>
         <span>Budget</span>
       </button>
     </nav>

@@ -3,7 +3,7 @@
 import { getObjectives, createObjective, updateObjective, deleteObjective } from '../supabase.js';
 import { showToast } from '../utils/animations.js';
 
-const CATEGORY_ICONS = { health: '💪', mind: '🧠', career: '🎯', finance: '💰' };
+const CATEGORY_ICONS = { health: '', mind: '', career: '', finance: '' };
 
 export async function renderObjectives(userId, container) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
@@ -39,10 +39,10 @@ function render(objectives, container, userId) {
           <div class="form-group">
             <label class="form-label">Category</label>
             <select class="input" id="obj-category">
-              <option value="health">💪 Health</option>
-              <option value="mind">🧠 Mind</option>
-              <option value="career">🎯 Career</option>
-              <option value="finance">💰 Finance</option>
+              <option value="health">Health</option>
+              <option value="mind">Mind</option>
+              <option value="career">Career</option>
+              <option value="finance">Finance</option>
             </select>
           </div>
           <div class="form-group">
@@ -201,7 +201,7 @@ function render(objectives, container, userId) {
       document.getElementById('progress-modal').classList.add('hidden');
       progressObjId = null;
       render(objectives, container, userId);
-      if (clamped >= 100) showToast('Objective complete! 🎉', 'success');
+      if (clamped >= 100) showToast('Objective complete!', 'success');
     } catch (err) {
       showToast('Failed to update progress', 'error');
     }
@@ -232,7 +232,7 @@ function render(objectives, container, userId) {
 }
 
 function renderObjCard(obj) {
-  const catIcon = CATEGORY_ICONS[obj.category] || '📋';
+  const catIcon = '';
   const milestones = obj.milestones || [];
 
   return `
@@ -243,15 +243,15 @@ function renderObjCard(obj) {
           ${obj.completed ? '<span class="badge badge-legendary">✓ Complete</span>' : ''}
         </div>
         <div class="obj-actions">
-          <button class="icon-btn edit-obj-btn" title="Edit">✏️</button>
-          <button class="icon-btn delete-obj-btn" title="Delete">🗑️</button>
+          <button class="icon-btn edit-obj-btn" title="Edit">Edit</button>
+          <button class="icon-btn delete-obj-btn" title="Delete">Del</button>
         </div>
       </div>
 
       ${obj.description ? `<p class="obj-desc">${obj.description}</p>` : ''}
 
       <div class="obj-meta">
-        <span class="obj-cat">${catIcon} ${obj.category}</span>
+        <span class="obj-cat">${obj.category}</span>
         <span class="obj-pct gold">${obj.progress}%</span>
       </div>
 

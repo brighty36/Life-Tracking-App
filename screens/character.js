@@ -4,7 +4,13 @@ import { getProfile, getStats, updateProfile, checkAndResetMonth, getMonthlyCate
 import { statLabel, getEffectiveDailyXP } from '../utils/xp.js';
 import { animateXPBar, showToast } from '../utils/animations.js';
 
-const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝','🐉','🌟','🦊','🐺','🦁','👑','💎','🔥','⚡','🌙','☀️','🎭'];
+const AVATAR_COLORS = ['#1558f6','#6d28d9','#059669','#dc2626','#d97706','#0891b2','#7c3aed','#be185d'];
+
+function avatarColor(username) {
+  let h = 0;
+  for (let i = 0; i < username.length; i++) h = ((h << 5) - h) + username.charCodeAt(i);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
 
 export async function renderCharacter(userId, container) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
@@ -29,17 +35,17 @@ export async function renderCharacter(userId, container) {
     relationships: stats.relationships ?? 0,
   };
 
+  const color    = avatarColor(profile.username);
+  const initials = profile.username.slice(0, 2).toUpperCase();
+
   container.innerHTML = `
     <div class="character-screen">
       <div class="character-hero card">
-        <div class="avatar-wrapper" id="avatar-btn" title="Change avatar">
-          <span class="avatar-emoji" id="avatar-display">${profile.avatar}</span>
-          <span class="avatar-edit-hint">✏️</span>
-        </div>
+        <div class="avatar-initials avatar-lg" style="background:${color}">${initials}</div>
         <div class="character-info">
           <div class="character-name-row">
             <span class="character-name" id="char-name">${profile.username}</span>
-            <button class="icon-btn" id="edit-name-btn" title="Edit name">✏️</button>
+            <button class="icon-btn" id="edit-name-btn" title="Edit name">Edit</button>
           </div>
         </div>
         <button class="btn btn-ghost switch-profile-btn" onclick="window.switchProfile()">Switch Profile</button>
@@ -49,33 +55,22 @@ export async function renderCharacter(userId, container) {
         <div class="xp-dual-row">
           <div class="xp-block">
             <span class="xp-block-label">Daily XP</span>
-            <span class="xp-block-value gold">${dailyXP.toLocaleString()}</span>
+            <span class="xp-block-value">${dailyXP.toLocaleString()}</span>
           </div>
           <div class="xp-block-divider"></div>
           <div class="xp-block">
             <span class="xp-block-label">Lifetime XP</span>
-            <span class="xp-block-value gold">${lifetimeXP.toLocaleString()}</span>
+            <span class="xp-block-value">${lifetimeXP.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       <div class="stats-grid">
-        ${renderStatCard('health',        '❤️',  'Health',        resolvedStats.health,        'stat-red',    monthlyXP.health        || 0)}
-        ${renderStatCard('intellect',     '🧠',  'Intellect',     resolvedStats.intellect,     'stat-purple', monthlyXP.intellect     || 0)}
-        ${renderStatCard('work',          '💼',  'Work',          resolvedStats.work,          'stat-blue',   monthlyXP.work          || 0)}
-        ${renderStatCard('wealth',        '💰',  'Wealth',        resolvedStats.wealth,        'stat-amber',  monthlyXP.wealth        || 0)}
-        ${renderStatCard('relationships', '🤝',  'Relationships', resolvedStats.relationships, 'stat-green',  monthlyXP.relationships || 0)}
-      </div>
-    </div>
-
-    <!-- Avatar picker modal -->
-    <div class="modal-overlay hidden" id="avatar-modal">
-      <div class="modal">
-        <h3 class="modal-title">Choose Avatar</h3>
-        <div class="avatar-grid" id="avatar-grid">
-          ${AVATARS.map(a => `<button class="avatar-option ${a === profile.avatar ? 'selected' : ''}" data-avatar="${a}">${a}</button>`).join('')}
-        </div>
-        <button class="btn btn-ghost" id="close-avatar-modal">Cancel</button>
+        ${renderStatCard('health',        'Health',        resolvedStats.health,        'stat-red',    monthlyXP.health        || 0)}
+        ${renderStatCard('intellect',     'Intellect',     resolvedStats.intellect,     'stat-purple', monthlyXP.intellect     || 0)}
+        ${renderStatCard('work',          'Work',          resolvedStats.work,          'stat-blue',   monthlyXP.work          || 0)}
+        ${renderStatCard('wealth',        'Wealth',        resolvedStats.wealth,        'stat-amber',  monthlyXP.wealth        || 0)}
+        ${renderStatCard('relationships', 'Relationships', resolvedStats.relationships, 'stat-green',  monthlyXP.relationships || 0)}
       </div>
     </div>
 
@@ -98,27 +93,6 @@ export async function renderCharacter(userId, container) {
       const bar = document.getElementById(`stat-bar-${stat}`);
       if (bar) animateXPBar(bar, 0, resolvedStats[stat], 600);
     });
-  });
-
-  // Avatar picker
-  document.getElementById('avatar-btn').addEventListener('click', () => {
-    document.getElementById('avatar-modal').classList.remove('hidden');
-  });
-  document.getElementById('close-avatar-modal').addEventListener('click', () => {
-    document.getElementById('avatar-modal').classList.add('hidden');
-  });
-  document.getElementById('avatar-grid').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.avatar-option');
-    if (!btn) return;
-    const avatar = btn.dataset.avatar;
-    try {
-      await updateProfile(userId, { avatar });
-      document.getElementById('avatar-display').textContent = avatar;
-      document.querySelectorAll('.avatar-option').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      document.getElementById('avatar-modal').classList.add('hidden');
-      showToast('Avatar updated!', 'success');
-    } catch { showToast('Failed to update avatar', 'error'); }
   });
 
   // Name edit
@@ -145,11 +119,11 @@ export async function renderCharacter(userId, container) {
   });
 }
 
-function renderStatCard(stat, icon, label, value, colorClass, monthlyXp) {
+function renderStatCard(stat, label, value, colorClass, monthlyXp) {
   return `
     <div class="stat-card card">
       <div class="stat-card-header">
-        <span class="stat-icon">${icon}</span>
+        <span class="stat-dot ${colorClass}"></span>
         <span class="stat-label">${label}</span>
         <span class="stat-value ${colorClass}">${value}</span>
       </div>
