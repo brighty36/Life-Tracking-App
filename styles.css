@@ -721,13 +721,20 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 
 /* ─── ADD TASK TO PROJECT ────────────────────────────────────────────────────── */
-.add-task-btn {
-  margin-top: 0.5rem;
+.add-task-btn, .add-project-btn {
   font-size: 0.75rem; padding: 0.2rem 0.6rem;
   opacity: 0.7; transition: opacity var(--transition);
 }
-.add-task-btn:hover { opacity: 1; }
-.ptm-project-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.add-task-btn { margin-top: 0.5rem; }
+.add-task-btn:hover, .add-project-btn:hover { opacity: 1; }
+.ptm-project-label, .paq-quest-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+
+.obj-card-footer {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;
+}
+
+/* obj-card drag handle sits in the title row */
+.obj-title-row .drag-handle { margin-right: 0.15rem; }
 
 /* ─── REWARDS SCREEN ───────────────────────────────────────────────────────── */
 .rewards-screen { display: flex; flex-direction: column; gap: 1rem; }
