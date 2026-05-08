@@ -4,12 +4,12 @@ import { getActivityLog, deleteActivityLog, getReflection } from '../supabase.js
 import { showToast } from '../utils/animations.js';
 
 const ENTRY_META = {
-  quest_complete:  { icon: '⚔️',  label: 'Quest Complete',   color: 'green'  },
-  reward_redeemed: { icon: '🎁',  label: 'Reward Redeemed',  color: 'gold'   },
-  level_up:        { icon: '⭐',  label: 'Level Up!',        color: 'purple' },
-  stat_boost:      { icon: '📈',  label: 'Stat Boost',       color: 'blue'   },
-  monthly_reset:   { icon: '🔄',  label: 'Month Reset',      color: 'purple' },
-  reflection:      { icon: '🪞',  label: 'Reflection',       color: 'blue'   },
+  quest_complete:  { icon: 'QC', label: 'Quest Complete',   color: 'green'  },
+  reward_redeemed: { icon: 'RW', label: 'Reward Redeemed',  color: 'gold'   },
+  level_up:        { icon: 'LV', label: 'Level Up!',        color: 'purple' },
+  stat_boost:      { icon: 'ST', label: 'Stat Boost',       color: 'blue'   },
+  monthly_reset:   { icon: 'MR', label: 'Month Reset',      color: 'purple' },
+  reflection:      { icon: 'RF', label: 'Reflection',       color: 'blue'   },
 };
 
 const FILTERS = [
@@ -19,7 +19,7 @@ const FILTERS = [
   { key: 'reflections', label: 'Reflections', types: ['reflection', 'monthly_reset'] },
 ];
 
-const MOODS = ['', '😞', '😕', '😐', '🙂', '😄'];
+const MOODS = ['', 'Rough', 'Low', 'Okay', 'Good', 'Great'];
 
 export async function renderJournal(userId, container, onXPUpdate) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
@@ -112,27 +112,27 @@ function render(entries, userId, container, onXPUpdate, activeFilter) {
       const r = await getReflection(userId, date);
       if (!r) { body.innerHTML = `<p class="text-muted">No reflection found for this date.</p>`; return; }
 
-      const moodEmoji = r.mood ? MOODS[r.mood] : '';
+      const moodEmoji = r.mood ? MOODS[r.mood] : null;
       body.innerHTML = `
         ${moodEmoji ? `<div class="reflection-detail-mood">${moodEmoji}</div>` : ''}
         ${r.things_learnt ? `
           <div class="reflection-detail-section">
-            <div class="reflection-detail-label">📚 Things I learnt</div>
+            <div class="reflection-detail-label">Things I learnt</div>
             <p>${escapeHtml(r.things_learnt)}</p>
           </div>` : ''}
         ${r.proud_of ? `
           <div class="reflection-detail-section">
-            <div class="reflection-detail-label">🌟 Things I am proud of</div>
+            <div class="reflection-detail-label">Things I am proud of</div>
             <p>${escapeHtml(r.proud_of)}</p>
           </div>` : ''}
         ${r.troubled_by ? `
           <div class="reflection-detail-section">
-            <div class="reflection-detail-label">💭 Things that troubled me</div>
+            <div class="reflection-detail-label">Things that troubled me</div>
             <p>${escapeHtml(r.troubled_by)}</p>
           </div>` : ''}
         ${r.grateful_for ? `
           <div class="reflection-detail-section">
-            <div class="reflection-detail-label">🙏 Things I am grateful for</div>
+            <div class="reflection-detail-label">Things I am grateful for</div>
             <p>${escapeHtml(r.grateful_for)}</p>
           </div>` : ''}
       `;
@@ -178,7 +178,7 @@ function render(entries, userId, container, onXPUpdate, activeFilter) {
 }
 
 function renderEntry(entry) {
-  const meta    = ENTRY_META[entry.entry_type] || { icon: '📝', label: 'Activity', color: 'default' };
+  const meta    = ENTRY_META[entry.entry_type] || { icon: 'AC', label: 'Activity', color: 'default' };
   const date    = new Date(entry.created_at);
   const timeStr = formatRelativeTime(date);
   const xpStr   = entry.xp_delta > 0
@@ -194,7 +194,7 @@ function renderEntry(entry) {
 
   return `
     <div class="journal-entry entry-${meta.color}" data-id="${entry.id}">
-      <div class="entry-icon">${meta.icon}</div>
+      <div class="entry-icon color-${meta.color}">${meta.icon}</div>
       <div class="entry-body">
         <div class="entry-header">
           <span class="entry-type">${meta.label}</span>
@@ -206,7 +206,7 @@ function renderEntry(entry) {
           ${reflectionDate ? `<button class="btn-link view-reflection-btn" data-date="${reflectionDate}">Read full →</button>` : ''}
         </div>
       </div>
-      <button class="icon-btn delete-entry-btn" data-id="${entry.id}" title="Remove entry">🗑️</button>
+      <button class="icon-btn delete-entry-btn" data-id="${entry.id}" title="Remove entry">Del</button>
     </div>
   `;
 }

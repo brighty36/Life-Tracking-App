@@ -7,24 +7,24 @@ import { attachCalendar } from '../utils/calendar.js';
 const CURRENCY = '£';
 
 const EXPENSE_CATEGORIES = [
-  { value: 'housing',       label: '🏠 Housing' },
-  { value: 'food',          label: '🍔 Food & Drink' },
-  { value: 'transport',     label: '🚗 Transport' },
-  { value: 'entertainment', label: '🎮 Entertainment' },
-  { value: 'shopping',      label: '🛍️ Shopping' },
-  { value: 'health',        label: '💊 Health' },
-  { value: 'subscriptions', label: '📱 Subscriptions' },
-  { value: 'travel',        label: '✈️ Travel' },
-  { value: 'utilities',     label: '🔧 Utilities' },
-  { value: 'other',         label: '🎁 Other' },
+  { value: 'housing',       label: 'Housing' },
+  { value: 'food',          label: 'Food & Drink' },
+  { value: 'transport',     label: 'Transport' },
+  { value: 'entertainment', label: 'Entertainment' },
+  { value: 'shopping',      label: 'Shopping' },
+  { value: 'health',        label: 'Health' },
+  { value: 'subscriptions', label: 'Subscriptions' },
+  { value: 'travel',        label: 'Travel' },
+  { value: 'utilities',     label: 'Utilities' },
+  { value: 'other',         label: 'Other' },
 ];
 
 const INCOME_CATEGORIES = [
-  { value: 'salary',     label: '💼 Salary' },
-  { value: 'freelance',  label: '💸 Freelance' },
-  { value: 'gift',       label: '🎁 Gift' },
-  { value: 'investment', label: '📈 Investment' },
-  { value: 'other',      label: '💰 Other Income' },
+  { value: 'salary',     label: 'Salary' },
+  { value: 'freelance',  label: 'Freelance' },
+  { value: 'gift',       label: 'Gift' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'other',      label: 'Other Income' },
 ];
 
 const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
@@ -88,17 +88,14 @@ function render(transactions, state, container, userId) {
       <!-- Summary -->
       <div class="budget-summary">
         <div class="summary-card card summary-in">
-          <div class="summary-icon">💚</div>
           <div class="summary-label">Total In</div>
-          <div class="summary-amount">${CURRENCY}${fmt(totalIn)}</div>
+          <div class="summary-amount amount-positive">${CURRENCY}${fmt(totalIn)}</div>
         </div>
         <div class="summary-card card summary-out">
-          <div class="summary-icon">🔴</div>
           <div class="summary-label">Total Out</div>
-          <div class="summary-amount">${CURRENCY}${fmt(totalOut)}</div>
+          <div class="summary-amount amount-negative">${CURRENCY}${fmt(totalOut)}</div>
         </div>
         <div class="summary-card card summary-net">
-          <div class="summary-icon">${net >= 0 ? '✨' : '⚠️'}</div>
           <div class="summary-label">Net</div>
           <div class="summary-amount ${net >= 0 ? 'amount-positive' : 'amount-negative'}">
             ${net >= 0 ? '+' : ''}${CURRENCY}${fmt(Math.abs(net))}
@@ -348,8 +345,8 @@ function renderTxCard(tx) {
           </div>
         </div>
         <div class="tx-actions">
-          <button class="icon-btn edit-tx-btn" title="Edit">✏️</button>
-          <button class="icon-btn delete-tx-btn" title="Delete">🗑️</button>
+          <button class="icon-btn edit-tx-btn" title="Edit">Edit</button>
+          <button class="icon-btn delete-tx-btn" title="Delete">Del</button>
         </div>
       </div>
     </div>
