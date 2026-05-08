@@ -1127,10 +1127,8 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 /* 6-item bottom nav */
 .bottom-nav .nav-item { font-size: 0.58rem; }
 
-/* Hide text labels below 480px */
-@media (max-width: 480px) {
-  .bottom-nav .nav-item span:not(.nav-icon) { display: none; }
-  .bottom-nav .nav-item { padding: 0.75rem 0; }
+@media (max-width: 380px) {
+  .bottom-nav .nav-item { font-size: 0.52rem; padding: 0.65rem 0.1rem; }
 }
 
 /* ─── BUDGET SCREEN ─────────────────────────────────────────────────────────── */
