@@ -74,7 +74,7 @@ function applySort(items, sortBy, userId, tab) {
     if (!b.deadline) return -1;
     return a.deadline.localeCompare(b.deadline);
   });
-  if (sortBy === 'xp')       return sorted.sort((a, b) => b.xp_reward - a.xp_reward);
+  if (sortBy === 'xp')       return sorted.sort((a, b) => (b.xp_reward ?? b.progress ?? 0) - (a.xp_reward ?? a.progress ?? 0));
   if (sortBy === 'category') return sorted.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
   if (sortBy === 'created')  return sorted.sort((a, b) => a.created_at.localeCompare(b.created_at));
   return items;
@@ -97,8 +97,9 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   const projects = quests.filter(q => q.frequency === 'weekly');
 
   // Apply sort/order
-  const sortedTasks    = applySort(tasks,    activeSort, userId, 'task');
-  const sortedProjects = applySort(projects, activeSort, userId, 'project');
+  const sortedTasks       = applySort(tasks,       activeSort, userId, 'task');
+  const sortedProjects    = applySort(projects,    activeSort, userId, 'project');
+  const sortedObjectives  = applySort(objectives,  activeSort, userId, 'longterm');
 
   // Build parent-child maps
   const tasksByProject    = groupBy(tasks,    q => q.parent_quest_id);
@@ -108,14 +109,17 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
 
   const counts = { task: tasks.length, project: projects.length, longterm: objectives.length };
 
-  const sortBar = activeTab !== 'longterm' ? `
+  const sortBarEntries = activeTab === 'longterm'
+    ? [['custom','↕ Custom'],['alpha','A–Z'],['category','🏷 Cat'],['xp','📊 Progress'],['created','🕐 Created']]
+    : Object.entries(SORT_LABELS);
+  const sortBar = `
     <div class="sort-bar">
       <span class="sort-label">Sort:</span>
-      ${Object.entries(SORT_LABELS).map(([key, label]) => `
+      ${sortBarEntries.map(([key, label]) => `
         <button class="sort-btn ${activeSort === key ? 'active' : ''}" data-sort="${key}">${label}</button>
       `).join('')}
     </div>
-  ` : '';
+  `;
 
   container.innerHTML = `
     <div class="quests-screen">
@@ -158,9 +162,9 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         </div>
       ` : `
         <div class="obj-list" id="obj-list">
-          ${objectives.length === 0
+          ${sortedObjectives.length === 0
             ? `<div class="empty-state">No quests yet.<br>Set a long-term goal to get started!</div>`
-            : objectives.map(o => renderObjCard(o, projectsByObj[o.id] || [])).join('')}
+            : sortedObjectives.map(o => renderObjCard(o, projectsByObj[o.id] || [])).join('')}
         </div>
       `}
     </div>
@@ -278,6 +282,52 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       </div>
     </div>
 
+    <!-- Add project to quest modal -->
+    <div class="modal-overlay hidden" id="quest-project-modal">
+      <div class="modal modal-wide">
+        <h3 class="modal-title">Add Project to Quest</h3>
+        <p class="modal-body paq-quest-label" id="paq-quest-label"></p>
+        <input class="input" id="paq-title" placeholder="Project title…" maxlength="80" />
+        <textarea class="input textarea" id="paq-desc" placeholder="Description (optional)…" rows="2"></textarea>
+        <div class="form-group">
+          <label class="form-label">Categories</label>
+          <div class="cat-chips" id="paq-categories">
+            ${ALL_CATEGORIES.map(c => `
+              <button type="button" class="cat-chip paq-chip" data-cat="${c}">${CATEGORY_ICONS[c]} ${c}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Difficulty</label>
+            <select class="input" id="paq-difficulty">
+              <option value="fun">🎉 Fun (0 XP)</option>
+              <option value="quick">⚡ Quick (5 XP)</option>
+              <option value="easy">🟢 Easy (25 XP)</option>
+              <option value="medium" selected>🟡 Medium (50 XP)</option>
+              <option value="hard">🟠 Hard (100 XP)</option>
+              <option value="legendary">🔴 Legendary (250 XP)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deadline (optional)</label>
+            <div class="deadline-row">
+              <input class="input" id="paq-deadline" placeholder="Pick a date…" />
+              <div class="deadline-quick-btns">
+                <button type="button" class="btn btn-xs btn-ghost" id="paq-dl-today">Today</button>
+                <button type="button" class="btn btn-xs btn-ghost" id="paq-dl-week">Week</button>
+                <button type="button" class="btn btn-xs btn-ghost" id="paq-dl-clear">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="close-paq">Cancel</button>
+          <button class="btn btn-primary" id="save-paq">Add Project</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Long-term quest add/edit modal -->
     <div class="modal-overlay hidden" id="obj-modal">
       <div class="modal modal-wide">
@@ -373,11 +423,15 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   let deletingObjId          = null;
   let selectedCategories     = ['health'];
   let selectedPtmCategories  = ['health'];
+  let selectedPaqCategories  = ['health'];
   let addingTaskToProjectId  = null;
+  let addingProjectToQuestId = null;
   let dragSrcId              = null;
 
   // The current display list used by drag-drop handlers
-  let displayList = activeTab === 'task' ? sortedTasks : sortedProjects;
+  let displayList = activeTab === 'task' ? sortedTasks
+    : activeTab === 'project'            ? sortedProjects
+    : sortedObjectives;
 
   // ─── TABS ────────────────────────────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -423,7 +477,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   }
 
   function syncCategoryChips() {
-    document.querySelectorAll('.cat-chip:not(.ptm-chip)').forEach(chip => {
+    document.querySelectorAll('.cat-chip:not(.ptm-chip):not(.paq-chip)').forEach(chip => {
       chip.classList.toggle('active', selectedCategories.includes(chip.dataset.cat));
     });
   }
@@ -434,7 +488,13 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     });
   }
 
-  document.querySelectorAll('.cat-chip:not(.ptm-chip)').forEach(chip => {
+  function syncPaqCategoryChips() {
+    document.querySelectorAll('.paq-chip').forEach(chip => {
+      chip.classList.toggle('active', selectedPaqCategories.includes(chip.dataset.cat));
+    });
+  }
+
+  document.querySelectorAll('.cat-chip:not(.ptm-chip):not(.paq-chip)').forEach(chip => {
     chip.addEventListener('click', () => {
       const cat = chip.dataset.cat;
       if (selectedCategories.includes(cat)) {
@@ -455,6 +515,18 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         selectedPtmCategories.push(cat);
       }
       syncPtmCategoryChips();
+    });
+  });
+
+  document.querySelectorAll('.paq-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cat = chip.dataset.cat;
+      if (selectedPaqCategories.includes(cat)) {
+        if (selectedPaqCategories.length > 1) selectedPaqCategories = selectedPaqCategories.filter(c => c !== cat);
+      } else {
+        selectedPaqCategories.push(cat);
+      }
+      syncPaqCategoryChips();
     });
   });
 
@@ -557,6 +629,64 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       showToast(`Task "${title}" added!`, 'success');
       render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
     } catch { showToast('Failed to add task', 'error'); }
+  });
+
+  // ─── ADD PROJECT TO QUEST MODAL ──────────────────────────────────────────
+  const OBJ_TO_QUEST_CAT = { health: 'health', mind: 'mind', career: 'work', finance: 'finance' };
+
+  function openQuestProjectModal(obj) {
+    addingProjectToQuestId = obj.id;
+    selectedPaqCategories = [OBJ_TO_QUEST_CAT[obj.category] || 'work'];
+    document.getElementById('paq-quest-label').textContent = `🎯 ${obj.title}`;
+    document.getElementById('paq-title').value = '';
+    document.getElementById('paq-desc').value = '';
+    document.getElementById('paq-difficulty').value = 'medium';
+    document.getElementById('paq-deadline').value = '';
+    syncPaqCategoryChips();
+    document.getElementById('quest-project-modal').classList.remove('hidden');
+    document.getElementById('paq-title').focus();
+  }
+
+  const paqDeadlineInput = document.getElementById('paq-deadline');
+  attachCalendar(paqDeadlineInput);
+  document.getElementById('paq-dl-today').addEventListener('click', () => {
+    paqDeadlineInput.value = todayStr();
+    paqDeadlineInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.getElementById('paq-dl-week').addEventListener('click', () => {
+    paqDeadlineInput.value = endOfWeek();
+    paqDeadlineInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.getElementById('paq-dl-clear').addEventListener('click', () => { paqDeadlineInput.value = ''; });
+
+  document.getElementById('close-paq').addEventListener('click', () => {
+    document.getElementById('quest-project-modal').classList.add('hidden');
+    addingProjectToQuestId = null;
+  });
+
+  document.getElementById('save-paq').addEventListener('click', async () => {
+    const title       = document.getElementById('paq-title').value.trim();
+    const description = document.getElementById('paq-desc').value.trim() || null;
+    const difficulty  = document.getElementById('paq-difficulty').value;
+    const deadline    = document.getElementById('paq-deadline').value || null;
+    const category    = selectedPaqCategories.join(',');
+
+    if (!title) { showToast('Please enter a title', 'error'); return; }
+    if (!addingProjectToQuestId) return;
+
+    try {
+      const newProject = await createQuest(userId, {
+        title, description, category, difficulty, deadline,
+        frequency: 'weekly',
+        objective_id: addingProjectToQuestId,
+        is_recurring: false,
+      });
+      quests.push(newProject);
+      document.getElementById('quest-project-modal').classList.add('hidden');
+      addingProjectToQuestId = null;
+      showToast(`Project "${title}" added!`, 'success');
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
+    } catch { showToast('Failed to add project', 'error'); }
   });
 
   // ─── OBJ MODAL ───────────────────────────────────────────────────────────
@@ -676,6 +806,55 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     });
   }
 
+  // ─── OBJ LIST DRAG AND DROP ──────────────────────────────────────────────
+  const objList = document.getElementById('obj-list');
+  if (objList && activeSort === 'custom') {
+    objList.addEventListener('dragstart', e => {
+      const card = e.target.closest('.obj-card');
+      if (!card) return;
+      dragSrcId = card.dataset.id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragSrcId);
+    });
+
+    objList.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const card = e.target.closest('.obj-card');
+      if (!card || card.dataset.id === dragSrcId) return;
+      document.querySelectorAll('.obj-card').forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    });
+
+    objList.addEventListener('dragleave', e => {
+      const card = e.target.closest('.obj-card');
+      if (card) card.classList.remove('drag-over');
+    });
+
+    objList.addEventListener('dragend', () => {
+      document.querySelectorAll('.obj-card').forEach(c => c.classList.remove('dragging', 'drag-over'));
+      dragSrcId = null;
+    });
+
+    objList.addEventListener('drop', e => {
+      e.preventDefault();
+      const targetCard = e.target.closest('.obj-card');
+      if (!targetCard || !dragSrcId || targetCard.dataset.id === dragSrcId) return;
+
+      const srcIdx = displayList.findIndex(o => o.id === dragSrcId);
+      const tgtIdx = displayList.findIndex(o => o.id === targetCard.dataset.id);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+
+      const [moved] = displayList.splice(srcIdx, 1);
+      displayList.splice(tgtIdx, 0, moved);
+
+      saveCustomOrder(userId, 'longterm', displayList.map(o => o.id));
+      dragSrcId = null;
+      render(quests, objectives, container, userId, onXPUpdate, 'longterm', 'custom');
+    });
+  }
+
   // ─── QUEST LIST ACTIONS ──────────────────────────────────────────────────
   if (questList) {
     questList.addEventListener('click', async (e) => {
@@ -736,9 +915,17 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
   });
 
   // ─── OBJ LIST ACTIONS ────────────────────────────────────────────────────
-  const objList = document.getElementById('obj-list');
   if (objList) {
     objList.addEventListener('click', async (e) => {
+      // Add project to quest button
+      if (e.target.closest('.add-project-btn')) {
+        const card = e.target.closest('.obj-card');
+        if (!card) return;
+        const obj = objectives.find(o => o.id === card.dataset.id);
+        if (obj) openQuestProjectModal(obj);
+        return;
+      }
+
       const card = e.target.closest('.obj-card');
       if (!card) return;
       const obj = objectives.find(o => o.id === card.dataset.id);
@@ -977,11 +1164,13 @@ function renderPresetCard(preset, idx, existingQuests) {
 function renderObjCard(obj, linkedProjects) {
   const catIcon    = OBJ_CATEGORY_ICONS[obj.category] || '📋';
   const milestones = obj.milestones || [];
+  const draggable  = _activeSort === 'custom';
 
   return `
-    <div class="obj-card card ${obj.completed ? 'obj-complete' : ''}" data-id="${obj.id}">
+    <div class="obj-card card ${obj.completed ? 'obj-complete' : ''}" data-id="${obj.id}" ${draggable ? 'draggable="true"' : ''}>
       <div class="obj-header">
         <div class="obj-title-row">
+          ${draggable ? `<span class="drag-handle" title="Drag to reorder">⠿</span>` : ''}
           <span class="obj-title">${obj.title}</span>
           ${obj.completed ? '<span class="badge badge-legendary">✓ Complete</span>' : ''}
           ${linkedProjects.length > 0 ? `<span class="link-count-badge">📋 ${linkedProjects.length} project${linkedProjects.length !== 1 ? 's' : ''}</span>` : ''}
@@ -1020,7 +1209,12 @@ function renderObjCard(obj, linkedProjects) {
           `).join('')}
         </ul>
       ` : ''}
-      ${!obj.completed ? `<button class="btn btn-ghost btn-sm update-progress-btn">Update Progress</button>` : ''}
+      ${!obj.completed ? `
+        <div class="obj-card-footer">
+          <button class="btn btn-ghost btn-sm update-progress-btn">Update Progress</button>
+          <button class="btn btn-ghost btn-sm add-project-btn">+ Add Project</button>
+        </div>
+      ` : ''}
     </div>
   `;
 }
