@@ -1,6 +1,6 @@
 // Journal screen — activity log
 
-import { getActivityLog, deleteActivityLog, getReflection } from '../supabase.js';
+import { getActivityLog, deleteActivityLog, getReflection, updateActivityLogDate } from '../supabase.js';
 import { showToast } from '../utils/animations.js';
 
 const ENTRY_META = {
@@ -24,7 +24,7 @@ const MOODS = ['', 'Rough', 'Low', 'Okay', 'Good', 'Great'];
 export async function renderJournal(userId, container, onXPUpdate) {
   container.innerHTML = `<div class="loading-spinner"></div>`;
   const entries = await getActivityLog(userId, 100);
-  render(entries, userId, container, onXPUpdate, 'all');
+  render(entries, userId, container, onXPUpdate, 'all', null);
 }
 
 function filterEntries(entries, filterKey) {
@@ -33,7 +33,10 @@ function filterEntries(entries, filterKey) {
   return f ? entries.filter(e => f.types.includes(e.entry_type)) : entries;
 }
 
-function render(entries, userId, container, onXPUpdate, activeFilter) {
+function render(entries, userId, container, onXPUpdate, activeFilter, reviewDate) {
+  const today = new Date().toISOString().split('T')[0];
+  if (activeFilter === 'reflections' && !reviewDate) reviewDate = today;
+
   const visible = filterEntries(entries, activeFilter);
 
   container.innerHTML = `
@@ -52,6 +55,8 @@ function render(entries, userId, container, onXPUpdate, activeFilter) {
           </button>
         `).join('')}
       </div>
+
+      ${activeFilter === 'reflections' ? renderDailyReview(entries, reviewDate) : ''}
 
       <div class="journal-list" id="journal-list">
         ${visible.length === 0
@@ -82,24 +87,56 @@ function render(entries, userId, container, onXPUpdate, activeFilter) {
         </div>
       </div>
     </div>
+
+    <!-- Edit date modal -->
+    <div class="modal-overlay hidden" id="edit-date-modal">
+      <div class="modal">
+        <h3 class="modal-title">Change Date</h3>
+        <p class="modal-body">Change when this activity was recorded. Daily XP totals will update automatically.</p>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label class="form-label">Date</label>
+          <input type="date" class="input" id="edit-date-input" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="cancel-edit-date">Cancel</button>
+          <button class="btn btn-primary" id="confirm-edit-date">Save</button>
+        </div>
+      </div>
+    </div>
   `;
 
-  let deletingEntryId = null;
+  let deletingEntryId  = null;
+  let editingEntryId   = null;
+  let editingOrigDate  = null;
 
   // ── Filter tabs ────────────────────────────────────────────────────────────
   container.querySelector('.tab-row').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab-btn');
     if (!btn) return;
-    render(entries, userId, container, onXPUpdate, btn.dataset.filter);
+    render(entries, userId, container, onXPUpdate, btn.dataset.filter, null);
+  });
+
+  // ── Daily review navigation ────────────────────────────────────────────────
+  document.getElementById('review-prev-day')?.addEventListener('click', () => {
+    const d = new Date(reviewDate + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    render(entries, userId, container, onXPUpdate, activeFilter, d.toISOString().split('T')[0]);
+  });
+
+  document.getElementById('review-next-day')?.addEventListener('click', () => {
+    const d = new Date(reviewDate + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    const nextStr = d.toISOString().split('T')[0];
+    if (nextStr <= today) render(entries, userId, container, onXPUpdate, activeFilter, nextStr);
   });
 
   // ── Reflection detail ──────────────────────────────────────────────────────
   document.getElementById('journal-list').addEventListener('click', async (e) => {
-    if (e.target.closest('.delete-entry-btn')) return;
+    if (e.target.closest('.delete-entry-btn') || e.target.closest('.entry-edit-date-btn')) return;
     const btn = e.target.closest('.view-reflection-btn');
     if (!btn) return;
 
-    const date = btn.dataset.date;
+    const date  = btn.dataset.date;
     const modal = document.getElementById('reflection-modal');
     const body  = document.getElementById('reflection-modal-body');
     const title = document.getElementById('reflection-modal-title');
@@ -166,15 +203,113 @@ function render(entries, userId, container, onXPUpdate, activeFilter) {
       document.getElementById('delete-entry-modal').classList.add('hidden');
       deletingEntryId = null;
       if (updatedProfile && onXPUpdate) onXPUpdate(updatedProfile);
-      render(entries, userId, container, onXPUpdate, activeFilter);
+      render(entries, userId, container, onXPUpdate, activeFilter, reviewDate);
     } catch {
       showToast('Failed to remove entry', 'error');
+    }
+  });
+
+  // ── Edit date ──────────────────────────────────────────────────────────────
+  document.getElementById('journal-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('.entry-edit-date-btn');
+    if (!btn) return;
+    editingEntryId  = btn.dataset.id;
+    editingOrigDate = btn.dataset.date;
+    const input = document.getElementById('edit-date-input');
+    input.value = editingOrigDate;
+    input.max   = today;
+    document.getElementById('edit-date-modal').classList.remove('hidden');
+  });
+
+  document.getElementById('cancel-edit-date').addEventListener('click', () => {
+    document.getElementById('edit-date-modal').classList.add('hidden');
+    editingEntryId  = null;
+    editingOrigDate = null;
+  });
+
+  document.getElementById('confirm-edit-date').addEventListener('click', async () => {
+    if (!editingEntryId) return;
+    const newDate = document.getElementById('edit-date-input').value;
+    if (!newDate || newDate === editingOrigDate) {
+      document.getElementById('edit-date-modal').classList.add('hidden');
+      return;
+    }
+    try {
+      const updatedProfile = await updateActivityLogDate(editingEntryId, newDate);
+      const entry = entries.find(e => e.id === editingEntryId);
+      if (entry) entry.created_at = `${newDate}T12:00:00.000Z`;
+      document.getElementById('edit-date-modal').classList.add('hidden');
+      editingEntryId  = null;
+      editingOrigDate = null;
+      if (updatedProfile && onXPUpdate) onXPUpdate(updatedProfile);
+      render(entries, userId, container, onXPUpdate, activeFilter, reviewDate);
+    } catch {
+      showToast('Failed to update date', 'error');
     }
   });
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
   });
+}
+
+function renderDailyReview(allEntries, dateStr) {
+  const today    = new Date().toISOString().split('T')[0];
+  const isToday  = dateStr === today;
+
+  const dateEntries  = allEntries.filter(e => new Date(e.created_at).toISOString().split('T')[0] === dateStr);
+  const earnedItems  = dateEntries.filter(e => e.entry_type === 'quest_complete');
+  const spentItems   = dateEntries.filter(e => e.entry_type === 'reward_redeemed');
+  const totalEarned  = earnedItems.reduce((s, e) => s + (e.xp_delta || 0), 0);
+  const totalSpent   = Math.abs(spentItems.reduce((s, e) => s + (e.xp_delta || 0), 0));
+  const net          = totalEarned - totalSpent;
+
+  const itemName = (desc, prefix) => {
+    const m = desc.match(new RegExp(`^${prefix}(.+?) \\(`));
+    return escapeHtml(m ? m[1] : desc);
+  };
+
+  return `
+    <div class="daily-review-panel">
+      <div class="daily-review-nav">
+        <button class="icon-btn daily-review-nav-btn" id="review-prev-day" title="Previous day">&#8249;</button>
+        <span class="daily-review-date-label">${formatDisplayDate(dateStr)}</span>
+        <button class="icon-btn daily-review-nav-btn ${isToday ? 'invisible' : ''}" id="review-next-day" title="Next day">&#8250;</button>
+      </div>
+
+      <div class="daily-review-cols">
+        <div class="daily-review-col">
+          <div class="daily-review-col-title earned-title">XP Earned</div>
+          ${earnedItems.length === 0
+            ? `<div class="daily-review-empty">No quests completed</div>`
+            : earnedItems.map(e => `
+                <div class="daily-review-item">
+                  <span class="daily-review-item-name">${itemName(e.description, 'Completed quest: ')}</span>
+                  <span class="daily-review-item-xp earned-xp">+${e.xp_delta}</span>
+                </div>`).join('')}
+          <div class="daily-review-subtotal earned-subtotal">+${totalEarned} XP</div>
+        </div>
+
+        <div class="daily-review-divider"></div>
+
+        <div class="daily-review-col">
+          <div class="daily-review-col-title spent-title">XP Spent</div>
+          ${spentItems.length === 0
+            ? `<div class="daily-review-empty">No rewards redeemed</div>`
+            : spentItems.map(e => `
+                <div class="daily-review-item">
+                  <span class="daily-review-item-name">${itemName(e.description, 'Redeemed reward: ')}</span>
+                  <span class="daily-review-item-xp spent-xp">${e.xp_delta}</span>
+                </div>`).join('')}
+          <div class="daily-review-subtotal spent-subtotal">−${totalSpent} XP</div>
+        </div>
+      </div>
+
+      <div class="daily-review-net ${net >= 0 ? 'net-positive' : 'net-negative'}">
+        Net: ${net >= 0 ? '+' : ''}${net} XP
+      </div>
+    </div>
+  `;
 }
 
 function renderEntry(entry) {
@@ -187,10 +322,12 @@ function renderEntry(entry) {
     ? `<span class="xp-negative">${entry.xp_delta} XP</span>`
     : '';
 
-  // Extract YYYY-MM-DD from reflection description
   const reflectionDate = entry.entry_type === 'reflection'
     ? (entry.description.match(/(\d{4}-\d{2}-\d{2})/) || [])[1]
     : null;
+
+  const entryDateStr = new Date(entry.created_at).toISOString().split('T')[0];
+  const canEditDate  = entry.entry_type === 'quest_complete' || entry.entry_type === 'reward_redeemed';
 
   return `
     <div class="journal-entry entry-${meta.color}" data-id="${entry.id}">
@@ -203,6 +340,7 @@ function renderEntry(entry) {
         <div class="entry-desc">${entry.description}</div>
         <div class="entry-footer">
           <span class="entry-time">${timeStr}</span>
+          ${canEditDate ? `<button class="btn-link entry-edit-date-btn" data-id="${entry.id}" data-date="${entryDateStr}">Edit date</button>` : ''}
           ${reflectionDate ? `<button class="btn-link view-reflection-btn" data-date="${reflectionDate}">Read full →</button>` : ''}
         </div>
       </div>

@@ -434,3 +434,39 @@ export async function deleteActivityLog(entryId) {
 
   return updatedProfile;
 }
+
+/**
+ * Change the recorded date of an activity log entry.
+ * Adjusts daily_xp when the change crosses today's boundary.
+ * Returns updated profile (or null if no XP adjustment needed).
+ */
+export async function updateActivityLogDate(entryId, newDateStr) {
+  const { data: entry, error: fetchErr } = await supabase
+    .from('activity_log').select('user_id, xp_delta, created_at').eq('id', entryId).single();
+  if (fetchErr) throw fetchErr;
+
+  const today   = new Date().toISOString().split('T')[0];
+  const oldDate = new Date(entry.created_at).toISOString().split('T')[0];
+
+  let updatedProfile = null;
+  if (entry.xp_delta !== 0 && oldDate !== newDateStr) {
+    const profile = await getProfile(entry.user_id);
+    const updates = {};
+    if (oldDate === today && newDateStr !== today) {
+      updates.daily_xp = Math.max(0, (profile.daily_xp || 0) - entry.xp_delta);
+    } else if (oldDate !== today && newDateStr === today) {
+      updates.daily_xp = Math.max(0, (profile.daily_xp || 0) + entry.xp_delta);
+    }
+    if (Object.keys(updates).length > 0) {
+      updatedProfile = await updateProfile(entry.user_id, updates);
+    }
+  }
+
+  const { error } = await supabase
+    .from('activity_log')
+    .update({ created_at: `${newDateStr}T12:00:00.000Z` })
+    .eq('id', entryId);
+  if (error) throw error;
+
+  return updatedProfile;
+}
