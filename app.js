@@ -13,7 +13,7 @@ import { showToast } from './utils/animations.js';
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
 const THEME_KEY = 'life-rpg-theme';
-const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -92,9 +92,9 @@ async function loadProfileCards() {
     } else {
       container.innerHTML = profiles.map(p => `
         <button class="profile-card" data-id="${p.id}">
-          <span class="profile-card-avatar">${p.avatar}</span>
+          <span class="profile-card-avatar">${avatarHTML(p.username, 'lg')}</span>
           <span class="profile-card-name">${p.username}</span>
-          <span class="profile-card-xp gold">${(p.lifetime_xp || 0).toLocaleString()} XP</span>
+          <span class="profile-card-xp">${(p.lifetime_xp || 0).toLocaleString()} XP</span>
         </button>
       `).join('');
       container.querySelectorAll('.profile-card').forEach(card => {
@@ -131,9 +131,21 @@ window.switchProfile = function () {
   showProfileScreen();
 };
 
-// ─── AVATARS ─────────────────────────────────────────────────────────────────
+// ─── AVATAR INITIALS ─────────────────────────────────────────────────────────
 
-const AVATARS = ['⚔️','🧙','🏹','🛡️','🗡️','🔮','🦸','🧝','🐉','🌟','🦊','🐺','🦁','👑','💎','🔥','⚡','🌙','☀️','🎭'];
+const AVATAR_COLORS = ['#1558f6','#6d28d9','#059669','#dc2626','#d97706','#0891b2','#7c3aed','#be185d'];
+
+function avatarColor(username) {
+  let h = 0;
+  for (let i = 0; i < username.length; i++) h = ((h << 5) - h) + username.charCodeAt(i);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function avatarHTML(username, size = 'lg') {
+  const color    = avatarColor(username);
+  const initials = username.slice(0, 2).toUpperCase();
+  return `<div class="avatar-initials avatar-${size}" style="background:${color}">${initials}</div>`;
+}
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 
@@ -151,22 +163,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const next    = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem(THEME_KEY, next);
-    themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+    themeBtn.textContent = next === 'dark' ? 'Light' : 'Dark';
   });
-  themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+  themeBtn.textContent = savedTheme === 'dark' ? 'Light' : 'Dark';
 
   // Switch profile (header button)
   document.getElementById('switch-profile-btn').addEventListener('click', () => window.switchProfile());
 
   // ── New profile modal ──────────────────────────────────────────────────────
 
-  let selectedAvatar = AVATARS[0];
-
   document.getElementById('new-profile-btn').addEventListener('click', () => {
-    selectedAvatar = AVATARS[0];
-    document.getElementById('new-profile-avatar-grid').innerHTML = AVATARS.map(a =>
-      `<button class="avatar-option ${a === selectedAvatar ? 'selected' : ''}" data-avatar="${a}">${a}</button>`
-    ).join('');
     document.getElementById('new-profile-name').value = '';
     document.getElementById('new-profile-modal').classList.remove('hidden');
     document.getElementById('new-profile-name').focus();
@@ -176,21 +182,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('new-profile-modal').classList.add('hidden');
   });
 
-  document.getElementById('new-profile-avatar-grid').addEventListener('click', (e) => {
-    const btn = e.target.closest('.avatar-option');
-    if (!btn) return;
-    selectedAvatar = btn.dataset.avatar;
-    document.querySelectorAll('#new-profile-avatar-grid .avatar-option').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-  });
-
   document.getElementById('confirm-new-profile').addEventListener('click', async () => {
-    const name    = document.getElementById('new-profile-name').value.trim() || 'Adventurer';
+    const name    = document.getElementById('new-profile-name').value.trim() || 'Profile';
     const saveBtn = document.getElementById('confirm-new-profile');
     saveBtn.disabled    = true;
     saveBtn.textContent = 'Creating…';
     try {
-      const profile = await createProfile(name, selectedAvatar);
+      const profile = await createProfile(name, name.slice(0, 2).toUpperCase());
       document.getElementById('new-profile-modal').classList.add('hidden');
       await selectProfile(profile.id);
     } catch (err) {
