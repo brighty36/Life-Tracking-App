@@ -32,6 +32,86 @@ const PRESETS = [
   { title: 'Do something nice for someone else', category: 'relationships', difficulty: 'easy',   description: 'Spread kindness today' },
 ];
 
+const CLAUDE_IMPORT_PROMPT = `Generate tasks and projects for me in this exact JSON format. Only output valid JSON, nothing else.
+
+{
+  "tasks": [
+    {
+      "title": "Task name",
+      "description": "Optional description",
+      "category": "health",
+      "difficulty": "medium",
+      "frequency": "daily"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Project name",
+      "description": "Optional description",
+      "category": "work",
+      "difficulty": "hard",
+      "tasks": [
+        { "title": "Sub-task name", "category": "work", "difficulty": "medium" }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "title": "Long-term goal name",
+      "description": "Optional description",
+      "category": "mind"
+    }
+  ]
+}
+
+Valid categories: health, mind, work, finance, relationships
+Valid difficulty: fun, quick, easy, medium, hard, legendary
+Valid frequency: daily, weekly
+
+Here's what I want to work on: [DESCRIBE YOUR GOALS HERE]`;
+
+function parseImportJSON(jsonString) {
+  let raw;
+  try {
+    raw = JSON.parse(jsonString.trim());
+  } catch {
+    throw new Error('Invalid JSON — make sure you copied the full response from Claude.');
+  }
+  const VALID_CATS = new Set(['health','mind','work','finance','relationships']);
+  const VALID_DIFF = new Set(['fun','quick','easy','medium','hard','legendary']);
+
+  const tasks      = Array.isArray(raw.tasks)      ? raw.tasks      : [];
+  const projects   = Array.isArray(raw.projects)   ? raw.projects   : [];
+  const objectives = Array.isArray(raw.objectives) ? raw.objectives : [];
+
+  if (tasks.length + projects.length + objectives.length === 0) {
+    throw new Error('Nothing to import — JSON must have at least one task, project, or objective.');
+  }
+
+  const normalizeItem = item => ({
+    title:       String(item.title || '').trim(),
+    description: item.description ? String(item.description).trim() : null,
+    category:    VALID_CATS.has(item.category) ? item.category : 'mind',
+    difficulty:  VALID_DIFF.has(item.difficulty) ? item.difficulty : 'medium',
+    frequency:   item.frequency === 'weekly' ? 'weekly' : 'daily',
+    deadline:    item.deadline || null,
+  });
+
+  return {
+    tasks:      tasks.filter(t => t.title).map(normalizeItem),
+    projects:   projects.filter(p => p.title).map(p => ({
+      ...normalizeItem(p),
+      frequency: 'weekly',
+      tasks: Array.isArray(p.tasks) ? p.tasks.filter(t => t.title).map(normalizeItem) : [],
+    })),
+    objectives: objectives.filter(o => o.title).map(o => ({
+      title:       String(o.title).trim(),
+      description: o.description ? String(o.description).trim() : null,
+      category:    VALID_CATS.has(o.category) ? o.category : 'mind',
+    })),
+  };
+}
+
 function isDone(quest) { return quest.last_completed === todayStr(); }
 function isOverdue(quest) { return !!quest.deadline && quest.deadline < todayStr(); }
 
@@ -132,6 +212,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         </div>
         <div class="quest-header-btns">
           ${activeTab !== 'longterm' ? `<button class="btn btn-ghost btn-sm" id="presets-btn">Presets</button>` : ''}
+          <button class="btn btn-ghost btn-sm" id="import-btn">↓ Import</button>
           <button class="btn btn-primary" id="add-main-btn">+ Add</button>
         </div>
       </div>
@@ -379,6 +460,39 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-presets-modal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import from Claude modal -->
+    <div class="modal-overlay hidden" id="import-modal">
+      <div class="modal modal-wide">
+        <h3 class="modal-title">Import from Claude</h3>
+        <div class="import-tabs">
+          <button class="import-tab-btn active" data-panel="prompt">1. Get Prompt</button>
+          <button class="import-tab-btn" data-panel="paste">2. Paste JSON</button>
+        </div>
+
+        <div class="import-panel" id="import-panel-prompt">
+          <p class="import-hint">Copy this prompt into your Claude chat, fill in your goals at the bottom, then paste the JSON response back here.</p>
+          <pre class="import-prompt-box" id="import-prompt-text">${CLAUDE_IMPORT_PROMPT.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          <button class="btn btn-primary" id="copy-prompt-btn">Copy Prompt</button>
+        </div>
+
+        <div class="import-panel hidden" id="import-panel-paste">
+          <p class="import-hint">Paste Claude's JSON response below, then click Preview.</p>
+          <textarea class="input import-textarea" id="import-json-input" placeholder='{"tasks": [...], "projects": [...], "objectives": [...]}'></textarea>
+          <div class="import-error hidden" id="import-error"></div>
+          <div class="import-preview hidden" id="import-preview">
+            <div class="import-preview-title">Ready to import:</div>
+            <div id="import-preview-list"></div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="close-import-modal">Cancel</button>
+          <button class="btn btn-ghost hidden" id="import-preview-btn">Preview</button>
+          <button class="btn btn-primary hidden" id="import-confirm-btn">Import All</button>
         </div>
       </div>
     </div>
@@ -767,6 +881,118 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
         btn.disabled = false; btn.textContent = '+ Add';
       }
     });
+  });
+
+  // ─── IMPORT FROM CLAUDE ──────────────────────────────────────────────────
+  let importParsed = null;
+
+  document.getElementById('import-btn').addEventListener('click', () => {
+    importParsed = null;
+    document.getElementById('import-json-input').value = '';
+    document.getElementById('import-error').classList.add('hidden');
+    document.getElementById('import-preview').classList.add('hidden');
+    document.getElementById('import-confirm-btn').classList.add('hidden');
+    document.getElementById('import-preview-btn').classList.add('hidden');
+    // Start on the prompt tab
+    document.querySelectorAll('.import-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.import-tab-btn[data-panel="prompt"]').classList.add('active');
+    document.getElementById('import-panel-prompt').classList.remove('hidden');
+    document.getElementById('import-panel-paste').classList.add('hidden');
+    document.getElementById('import-modal').classList.remove('hidden');
+  });
+
+  document.getElementById('close-import-modal').addEventListener('click', () => {
+    document.getElementById('import-modal').classList.add('hidden');
+  });
+
+  document.querySelectorAll('.import-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.import-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = btn.dataset.panel;
+      document.getElementById('import-panel-prompt').classList.toggle('hidden', panel !== 'prompt');
+      document.getElementById('import-panel-paste').classList.toggle('hidden', panel !== 'paste');
+      document.getElementById('import-preview-btn').classList.toggle('hidden', panel !== 'paste');
+      if (panel !== 'paste') document.getElementById('import-confirm-btn').classList.add('hidden');
+    });
+  });
+
+  document.getElementById('copy-prompt-btn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(CLAUDE_IMPORT_PROMPT);
+      showToast('Prompt copied! Paste it into Claude.', 'success');
+    } catch {
+      showToast('Copy failed — select text manually', 'error');
+    }
+  });
+
+  document.getElementById('import-preview-btn').addEventListener('click', () => {
+    const raw = document.getElementById('import-json-input').value.trim();
+    const errorEl   = document.getElementById('import-error');
+    const previewEl = document.getElementById('import-preview');
+    const listEl    = document.getElementById('import-preview-list');
+    errorEl.classList.add('hidden');
+    previewEl.classList.add('hidden');
+    document.getElementById('import-confirm-btn').classList.add('hidden');
+    importParsed = null;
+    if (!raw) { errorEl.textContent = 'Please paste JSON first.'; errorEl.classList.remove('hidden'); return; }
+    try {
+      importParsed = parseImportJSON(raw);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    const { tasks: t, projects: p, objectives: o } = importParsed;
+    const lines = [];
+    if (o.length) lines.push(`${o.length} long-term quest${o.length !== 1 ? 's' : ''}`);
+    if (p.length) {
+      const subCount = p.reduce((n, proj) => n + proj.tasks.length, 0);
+      lines.push(`${p.length} project${p.length !== 1 ? 's' : ''}${subCount ? ` (+ ${subCount} sub-task${subCount !== 1 ? 's' : ''})` : ''}`);
+    }
+    if (t.length) lines.push(`${t.length} task${t.length !== 1 ? 's' : ''}`);
+    listEl.innerHTML = lines.map(l => `<div class="import-preview-item">✓ ${l}</div>`).join('');
+    previewEl.classList.remove('hidden');
+    document.getElementById('import-confirm-btn').classList.remove('hidden');
+  });
+
+  document.getElementById('import-confirm-btn').addEventListener('click', async () => {
+    if (!importParsed) return;
+    const btn = document.getElementById('import-confirm-btn');
+    btn.disabled = true; btn.textContent = 'Importing…';
+    try {
+      let taskCount = 0, projectCount = 0, objCount = 0;
+      for (const obj of importParsed.objectives) {
+        await createObjective(userId, { ...obj, progress: 0, milestones: [] });
+        objCount++;
+      }
+      for (const proj of importParsed.projects) {
+        const { tasks: subTasks, ...projData } = proj;
+        const newProj = await createQuest(userId, { ...projData, is_recurring: false });
+        quests.push(newProj);
+        projectCount++;
+        for (const task of subTasks) {
+          const newTask = await createQuest(userId, { ...task, is_recurring: false, parent_quest_id: newProj.id });
+          quests.push(newTask);
+          taskCount++;
+        }
+      }
+      for (const task of importParsed.tasks) {
+        const newTask = await createQuest(userId, { ...task, is_recurring: false });
+        quests.push(newTask);
+        taskCount++;
+      }
+      document.getElementById('import-modal').classList.add('hidden');
+      const parts = [];
+      if (objCount)     parts.push(`${objCount} quest${objCount !== 1 ? 's' : ''}`);
+      if (projectCount) parts.push(`${projectCount} project${projectCount !== 1 ? 's' : ''}`);
+      if (taskCount)    parts.push(`${taskCount} task${taskCount !== 1 ? 's' : ''}`);
+      showToast(`Imported: ${parts.join(', ')}`, 'success');
+      render(quests, objectives, container, userId, onXPUpdate, activeTab, activeSort);
+    } catch {
+      showToast('Import failed — please try again', 'error');
+      btn.disabled = false; btn.textContent = 'Import All';
+    }
   });
 
   // ─── DRAG AND DROP ───────────────────────────────────────────────────────
