@@ -214,6 +214,71 @@ alter table activity_log drop constraint if exists activity_log_entry_type_check
 alter table activity_log add constraint activity_log_entry_type_check
   check (entry_type in ('quest_complete','reward_redeemed','level_up','stat_boost','reflection','monthly_reset'));
 
+-- ─── v7: Supabase Auth + Row Level Security ───────────────────────────────────
+-- Run this block once in the Supabase SQL editor after enabling Email auth
+-- in Dashboard → Auth → Providers.
+-- profiles.id must equal auth.uid() for new signups — createProfile() now sets this.
+
+-- PROFILES (id = auth.uid())
+alter table profiles enable row level security;
+drop policy if exists "user_access" on profiles;
+create policy "user_access" on profiles
+  for all using (auth.uid() = id) with check (auth.uid() = id);
+
+-- STATS
+alter table stats enable row level security;
+drop policy if exists "user_access" on stats;
+create policy "user_access" on stats
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- QUESTS
+alter table quests enable row level security;
+drop policy if exists "user_access" on quests;
+create policy "user_access" on quests
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- OBJECTIVES
+alter table objectives enable row level security;
+drop policy if exists "user_access" on objectives;
+create policy "user_access" on objectives
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- REWARDS
+alter table rewards enable row level security;
+drop policy if exists "user_access" on rewards;
+create policy "user_access" on rewards
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- REDEMPTIONS
+alter table redemptions enable row level security;
+drop policy if exists "user_access" on redemptions;
+create policy "user_access" on redemptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- REFLECTIONS
+alter table reflections enable row level security;
+drop policy if exists "user_access" on reflections;
+create policy "user_access" on reflections
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ACTIVITY LOG
+alter table activity_log enable row level security;
+drop policy if exists "user_access" on activity_log;
+create policy "user_access" on activity_log
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- TRANSACTIONS
+alter table transactions enable row level security;
+drop policy if exists "user_access" on transactions;
+create policy "user_access" on transactions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- MONTHLY CATEGORY XP
+alter table monthly_category_xp enable row level security;
+drop policy if exists "user_access" on monthly_category_xp;
+create policy "user_access" on monthly_category_xp
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- ─── MIGRATION: drop auth FK constraints if upgrading from v2 ─────────────────
 -- Run these manually in the Supabase SQL editor if upgrading an existing database:
 --
