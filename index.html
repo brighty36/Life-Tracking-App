@@ -69,6 +69,7 @@
       </div>
 
       <div class="header-actions">
+        <button id="settings-btn" title="Settings">Settings</button>
         <button id="theme-toggle" title="Toggle theme">Dark</button>
         <button id="sign-out-btn" title="Sign out">Sign out</button>
       </div>
@@ -85,6 +86,7 @@
         <button class="nav-item" data-screen="journal">Journal</button>
         <button class="nav-item" data-screen="reflection">Reflection</button>
         <button class="nav-item" data-screen="budget">Budget</button>
+        <button class="nav-item" data-screen="claude">Claude</button>
       </nav>
 
       <!-- MAIN CONTENT -->
@@ -114,7 +116,26 @@
       <button class="nav-item" data-screen="budget">
         <span>Budget</span>
       </button>
+      <button class="nav-item" data-screen="claude">
+        <span>Claude</span>
+      </button>
     </nav>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay hidden" id="settings-modal">
+      <div class="modal">
+        <h3 class="modal-title">Settings</h3>
+        <div class="form-group">
+          <label class="form-label">Anthropic API Key</label>
+          <input class="input" id="settings-api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+          <p class="settings-hint">Your key is stored only in this browser. Get one at console.anthropic.com.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="settings-cancel">Cancel</button>
+          <button class="btn btn-primary" id="settings-save">Save</button>
+        </div>
+      </div>
+    </div>
 
   </div><!-- /#app-shell -->
 
