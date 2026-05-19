@@ -214,6 +214,19 @@ alter table activity_log drop constraint if exists activity_log_entry_type_check
 alter table activity_log add constraint activity_log_entry_type_check
   check (entry_type in ('quest_complete','reward_redeemed','level_up','stat_boost','reflection','monthly_reset'));
 
+-- ─── v7: Claude AI integration ───────────────────────────────────────────────
+
+-- Claude.ai chat URL linked to a quest
+alter table quests add column if not exists claude_chat_url text;
+
+-- Expand entry_type to include claude_quest
+alter table activity_log drop constraint if exists activity_log_entry_type_check;
+alter table activity_log add constraint activity_log_entry_type_check
+  check (entry_type in (
+    'quest_complete','reward_redeemed','level_up','stat_boost',
+    'reflection','monthly_reset','claude_quest'
+  ));
+
 -- ─── MIGRATION: drop auth FK constraints if upgrading from v2 ─────────────────
 -- Run these manually in the Supabase SQL editor if upgrading an existing database:
 --
