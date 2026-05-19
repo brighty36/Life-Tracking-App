@@ -1,6 +1,6 @@
-// Main app — routing, profile selection, nav
+// Main app — routing, auth, nav
 
-import { getAllProfiles, createProfile, getProfile } from './supabase.js';
+import { supabase, signIn, signUp, signOut, getSession, createProfile, getProfile } from './supabase.js';
 import { renderCharacter  } from './screens/character.js';
 import { renderQuests     } from './screens/quests.js';
 import { renderRewards    } from './screens/rewards.js';
@@ -17,8 +17,6 @@ const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-
-const PROFILE_KEY = 'life-rpg-profile-id';
 
 let currentUserId  = null;
 let currentScreen  = 'character';
@@ -69,67 +67,59 @@ function updateHeaderXP(profile) {
   if (lifetimeEl) lifetimeEl.textContent = (profile.lifetime_xp || 0).toLocaleString();
 }
 
-// ─── PROFILE SELECTOR ────────────────────────────────────────────────────────
+// ─── AUTH SCREEN ─────────────────────────────────────────────────────────────
 
-function showProfileScreen() {
-  document.getElementById('profile-screen').classList.remove('hidden');
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
   document.getElementById('app-shell').classList.add('hidden');
-  loadProfileCards();
+  currentUserId  = null;
+  currentProfile = null;
 }
 
 function showAppShell() {
-  document.getElementById('profile-screen').classList.add('hidden');
+  document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
 }
 
-async function loadProfileCards() {
-  const container = document.getElementById('profile-cards');
-  container.innerHTML = `<div class="loading-spinner"></div>`;
+async function loadUserProfile(authId) {
   try {
-    const profiles = await getAllProfiles();
-    if (profiles.length === 0) {
-      container.innerHTML = `<p class="profile-empty">No profiles yet — create one below!</p>`;
-    } else {
-      container.innerHTML = profiles.map(p => `
-        <button class="profile-card" data-id="${p.id}">
-          <span class="profile-card-avatar">${avatarHTML(p.username, 'lg')}</span>
-          <span class="profile-card-name">${p.username}</span>
-          <span class="profile-card-xp">${(p.lifetime_xp || 0).toLocaleString()} XP</span>
-        </button>
-      `).join('');
-      container.querySelectorAll('.profile-card').forEach(card => {
-        card.addEventListener('click', () => selectProfile(card.dataset.id));
-      });
+    currentProfile = await getProfile(authId);
+    currentUserId  = authId;
+    updateHeaderXP(currentProfile);
+    showAppShell();
+    navigateTo('character');
+  } catch {
+    showProfileSetupModal(authId);
+  }
+}
+
+function showProfileSetupModal(authId) {
+  const modal  = document.getElementById('profile-setup-modal');
+  const nameEl = document.getElementById('profile-setup-name');
+  nameEl.value = '';
+  modal.classList.remove('hidden');
+  nameEl.focus();
+
+  document.getElementById('profile-setup-confirm').onclick = async () => {
+    const name = nameEl.value.trim() || 'Adventurer';
+    const btn  = document.getElementById('profile-setup-confirm');
+    btn.disabled    = true;
+    btn.textContent = 'Setting up…';
+    try {
+      currentProfile = await createProfile(authId, name, name.slice(0, 2).toUpperCase());
+      currentUserId  = authId;
+      modal.classList.add('hidden');
+      updateHeaderXP(currentProfile);
+      showAppShell();
+      navigateTo('character');
+    } catch (err) {
+      console.error('Profile creation failed:', err);
+      showToast('Failed to create profile', 'error');
+      btn.disabled    = false;
+      btn.textContent = 'Get started';
     }
-  } catch (err) {
-    console.error('Failed to load profiles:', err);
-    container.innerHTML = `<p class="error-state">Failed to load profiles.</p>`;
-  }
+  };
 }
-
-async function selectProfile(profileId) {
-  try {
-    currentProfile = await getProfile(profileId);
-  } catch (err) {
-    console.error('Profile not found:', err);
-    localStorage.removeItem(PROFILE_KEY);
-    showProfileScreen();
-    return;
-  }
-  localStorage.setItem(PROFILE_KEY, profileId);
-  currentUserId = profileId;
-  updateHeaderXP(currentProfile);
-  showAppShell();
-  navigateTo('character');
-}
-
-// Exposed globally so character screen can trigger it
-window.switchProfile = function () {
-  currentUserId  = null;
-  currentProfile = null;
-  localStorage.removeItem(PROFILE_KEY);
-  showProfileScreen();
-};
 
 // ─── AVATAR INITIALS ─────────────────────────────────────────────────────────
 
@@ -141,7 +131,7 @@ function avatarColor(username) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-function avatarHTML(username, size = 'lg') {
+export function avatarHTML(username, size = 'lg') {
   const color    = avatarColor(username);
   const initials = username.slice(0, 2).toUpperCase();
   return `<div class="avatar-initials avatar-${size}" style="background:${color}">${initials}</div>`;
@@ -149,7 +139,7 @@ function avatarHTML(username, size = 'lg') {
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
   // Nav buttons
   document.querySelectorAll('.nav-item').forEach(btn => {
@@ -167,45 +157,88 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   themeBtn.textContent = savedTheme === 'dark' ? 'Light' : 'Dark';
 
-  // Switch profile (header button)
-  document.getElementById('switch-profile-btn').addEventListener('click', () => window.switchProfile());
-
-  // ── New profile modal ──────────────────────────────────────────────────────
-
-  document.getElementById('new-profile-btn').addEventListener('click', () => {
-    document.getElementById('new-profile-name').value = '';
-    document.getElementById('new-profile-modal').classList.remove('hidden');
-    document.getElementById('new-profile-name').focus();
-  });
-
-  document.getElementById('cancel-new-profile').addEventListener('click', () => {
-    document.getElementById('new-profile-modal').classList.add('hidden');
-  });
-
-  document.getElementById('confirm-new-profile').addEventListener('click', async () => {
-    const name    = document.getElementById('new-profile-name').value.trim() || 'Profile';
-    const saveBtn = document.getElementById('confirm-new-profile');
-    saveBtn.disabled    = true;
-    saveBtn.textContent = 'Creating…';
+  // Sign out
+  document.getElementById('sign-out-btn').addEventListener('click', async () => {
     try {
-      const profile = await createProfile(name, name.slice(0, 2).toUpperCase());
-      document.getElementById('new-profile-modal').classList.add('hidden');
-      await selectProfile(profile.id);
+      await signOut();
     } catch (err) {
-      console.error('Failed to create profile:', err);
-      showToast('Failed to create profile', 'error');
-    } finally {
-      saveBtn.disabled    = false;
-      saveBtn.textContent = 'Create';
+      console.error('Sign out error:', err);
     }
   });
 
-  // ── Auto-resume last session ───────────────────────────────────────────────
+  // ── Auth form ──────────────────────────────────────────────────────────────
 
-  const savedId = localStorage.getItem(PROFILE_KEY);
-  if (savedId) {
-    selectProfile(savedId);
+  let authMode = 'signin';
+
+  document.getElementById('auth-tab-signin').addEventListener('click', () => {
+    authMode = 'signin';
+    document.getElementById('auth-tab-signin').classList.add('active');
+    document.getElementById('auth-tab-signup').classList.remove('active');
+    document.getElementById('auth-submit').textContent = 'Sign in';
+    document.getElementById('auth-error').classList.add('hidden');
+  });
+
+  document.getElementById('auth-tab-signup').addEventListener('click', () => {
+    authMode = 'signup';
+    document.getElementById('auth-tab-signup').classList.add('active');
+    document.getElementById('auth-tab-signin').classList.remove('active');
+    document.getElementById('auth-submit').textContent = 'Create account';
+    document.getElementById('auth-error').classList.add('hidden');
+  });
+
+  async function submitAuth() {
+    const email    = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errorEl  = document.getElementById('auth-error');
+    const btn      = document.getElementById('auth-submit');
+    if (!email || !password) return;
+
+    btn.disabled    = true;
+    btn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
+    errorEl.classList.add('hidden');
+    errorEl.style.color = '';
+
+    try {
+      const user = authMode === 'signin'
+        ? await signIn(email, password)
+        : await signUp(email, password);
+
+      if (authMode === 'signup' && !user.confirmed_at) {
+        errorEl.textContent = 'Check your email to confirm your account, then sign in.';
+        errorEl.classList.remove('hidden');
+        errorEl.style.color = 'var(--accent)';
+      }
+      // onAuthStateChange handles the rest for confirmed/signed-in users
+    } catch (err) {
+      errorEl.textContent = err.message || 'Authentication failed';
+      errorEl.classList.remove('hidden');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+    }
+  }
+
+  document.getElementById('auth-submit').addEventListener('click', submitAuth);
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitAuth();
+  });
+
+  // ── Auth state listener ────────────────────────────────────────────────────
+
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      await loadUserProfile(session.user.id);
+    } else {
+      showAuthScreen();
+    }
+  });
+
+  // ── Boot: check for existing session ──────────────────────────────────────
+
+  const session = await getSession();
+  if (session?.user) {
+    await loadUserProfile(session.user.id);
   } else {
-    showProfileScreen();
+    showAuthScreen();
   }
 });

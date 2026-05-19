@@ -9,6 +9,30 @@ const SUPABASE_ANON = window.ENV_SUPABASE_ANON || '';
 
 export const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+export async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data.user;
+}
+
+export async function signUp(email, password) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+  return data.user;
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+export async function getSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
 // ─── PROFILE MANAGEMENT ──────────────────────────────────────────────────────
 
 const DEFAULT_REWARDS = [
@@ -21,22 +45,15 @@ const DEFAULT_REWARDS = [
   { title: 'Holiday',      description: 'A proper holiday abroad',     tier: 'legendary', xp_cost: 5000 },
 ];
 
-export async function getAllProfiles() {
-  const { data, error } = await supabase
-    .from('profiles').select('*').order('created_at', { ascending: true });
-  if (error) throw error;
-  return data;
-}
-
-export async function createProfile(username, avatar) {
+export async function createProfile(authId, username, avatar) {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ username, avatar, lifetime_xp: 0, daily_xp: 0, stats_reset_month: currentMonth })
+    .insert({ id: authId, username, avatar, lifetime_xp: 0, daily_xp: 0, stats_reset_month: currentMonth })
     .select().single();
   if (error) throw error;
 
-  await seedNewProfile(data.id);
+  await seedNewProfile(authId);
   return data;
 }
 
