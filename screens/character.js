@@ -48,6 +48,7 @@ export async function renderCharacter(userId, container) {
             <button class="icon-btn" id="edit-name-btn" title="Edit name">Edit</button>
           </div>
         </div>
+        <button class="btn btn-ghost switch-profile-btn" onclick="window.switchProfile()">Switch Profile</button>
       </div>
 
       <div class="xp-section card">
