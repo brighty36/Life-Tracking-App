@@ -7,8 +7,10 @@ import { renderRewards    } from './screens/rewards.js';
 import { renderJournal    } from './screens/journal.js';
 import { renderReflection } from './screens/reflection.js';
 import { renderBudget     } from './screens/budget.js';
+import { renderClaude     } from './screens/claude.js';
 import { getEffectiveDailyXP } from './utils/xp.js';
 import { showToast } from './utils/animations.js';
+import { getApiKey, saveApiKey } from './utils/claude.js';
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -24,9 +26,9 @@ let currentProfile = null;
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
-const SCREENS = ['character', 'quests', 'rewards', 'journal', 'reflection', 'budget'];
+const SCREENS = ['character', 'quests', 'rewards', 'journal', 'reflection', 'budget', 'claude'];
 
-async function navigateTo(screen) {
+async function navigateTo(screen, context = null) {
   if (!SCREENS.includes(screen)) screen = 'character';
   currentScreen = screen;
 
@@ -45,12 +47,15 @@ async function navigateTo(screen) {
       case 'journal':     await renderJournal(currentUserId, content, handleXPUpdate); break;
       case 'reflection':  await renderReflection(currentUserId, content); break;
       case 'budget':      await renderBudget(currentUserId, content); break;
+      case 'claude':      await renderClaude(currentUserId, content, handleXPUpdate, context); break;
     }
   } catch (err) {
     console.error('Screen render error:', err);
     content.innerHTML = `<div class="error-state">Failed to load. <button class="btn btn-ghost" onclick="location.reload()">Retry</button></div>`;
   }
 }
+
+window.navigateTo = navigateTo;
 
 function handleXPUpdate(profile) {
   currentProfile = profile;
@@ -144,6 +149,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Nav buttons
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
+  });
+
+  // Settings modal
+  const settingsModal  = document.getElementById('settings-modal');
+  const settingsKeyEl  = document.getElementById('settings-api-key');
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    settingsKeyEl.value = getApiKey();
+    settingsModal.classList.remove('hidden');
+  });
+  document.getElementById('settings-cancel').addEventListener('click', () => {
+    settingsModal.classList.add('hidden');
+  });
+  document.getElementById('settings-save').addEventListener('click', () => {
+    saveApiKey(settingsKeyEl.value);
+    settingsModal.classList.add('hidden');
+    showToast('API key saved', 'success');
+  });
+  settingsModal.addEventListener('click', e => {
+    if (e.target === settingsModal) settingsModal.classList.add('hidden');
   });
 
   // Theme toggle
