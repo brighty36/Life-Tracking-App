@@ -22,32 +22,33 @@
   <div id="confetti-container"></div>
   <div id="toast-container"></div>
 
-  <!-- ─── AUTH SCREEN ──────────────────────────────────────────────────────── -->
-  <div id="auth-screen">
-    <div class="auth-container">
-      <h1 class="auth-title">Life Tracker</h1>
+  <!-- ─── PROFILE SELECTOR SCREEN ──────────────────────────────────────────── -->
+  <div id="profile-screen">
+    <div class="profile-selector">
+      <h1 class="profile-selector-title">Life Tracker</h1>
+      <p class="profile-selector-subtitle">Select profile</p>
 
-      <div class="auth-tabs">
-        <button class="auth-tab active" id="auth-tab-signin">Sign in</button>
-        <button class="auth-tab" id="auth-tab-signup">Sign up</button>
+      <div class="profile-cards" id="profile-cards">
+        <div class="loading-spinner"></div>
       </div>
 
-      <div class="auth-form">
-        <input class="input" id="auth-email" type="email" placeholder="Email" autocomplete="email" />
-        <input class="input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
-        <button class="btn btn-primary auth-submit-btn" id="auth-submit">Sign in</button>
-        <p class="auth-error hidden" id="auth-error"></p>
-      </div>
+      <button class="btn btn-primary profile-new-btn" id="new-profile-btn">+ New Profile</button>
     </div>
 
-    <!-- Profile setup modal — shown on first login only -->
-    <div class="modal-overlay hidden" id="profile-setup-modal">
+    <!-- New profile modal -->
+    <div class="modal-overlay hidden" id="new-profile-modal">
       <div class="modal">
-        <h3 class="modal-title">Set up your profile</h3>
-        <p class="modal-subtitle">What should we call you?</p>
-        <input class="input" id="profile-setup-name" placeholder="Your name" maxlength="30" autocomplete="off" />
+        <h3 class="modal-title">Create Profile</h3>
+        <input
+          class="input"
+          id="new-profile-name"
+          placeholder="Enter your name"
+          maxlength="30"
+          autocomplete="off"
+        />
         <div class="modal-actions">
-          <button class="btn btn-primary" id="profile-setup-confirm">Get started</button>
+          <button class="btn btn-ghost" id="cancel-new-profile">Cancel</button>
+          <button class="btn btn-primary" id="confirm-new-profile">Create</button>
         </div>
       </div>
     </div>
@@ -69,8 +70,9 @@
       </div>
 
       <div class="header-actions">
+        <button id="settings-btn" title="Settings">Settings</button>
         <button id="theme-toggle" title="Toggle theme">Dark</button>
-        <button id="sign-out-btn" title="Sign out">Sign out</button>
+        <button id="switch-profile-btn" title="Switch profile">Switch</button>
       </div>
     </header>
 
@@ -85,6 +87,7 @@
         <button class="nav-item" data-screen="journal">Journal</button>
         <button class="nav-item" data-screen="reflection">Reflection</button>
         <button class="nav-item" data-screen="budget">Budget</button>
+        <button class="nav-item" data-screen="claude">Claude</button>
       </nav>
 
       <!-- MAIN CONTENT -->
@@ -114,7 +117,26 @@
       <button class="nav-item" data-screen="budget">
         <span>Budget</span>
       </button>
+      <button class="nav-item" data-screen="claude">
+        <span>Claude</span>
+      </button>
     </nav>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay hidden" id="settings-modal">
+      <div class="modal">
+        <h3 class="modal-title">Settings</h3>
+        <div class="form-group">
+          <label class="form-label">Anthropic API Key</label>
+          <input class="input" id="settings-api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+          <p class="settings-hint">Your key is stored only in this browser. Get one at console.anthropic.com.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="settings-cancel">Cancel</button>
+          <button class="btn btn-primary" id="settings-save">Save</button>
+        </div>
+      </div>
+    </div>
 
   </div><!-- /#app-shell -->
 

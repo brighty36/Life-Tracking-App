@@ -131,6 +131,7 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
           <p class="screen-sub">${tabSubtitle(activeTab, counts)}</p>
         </div>
         <div class="quest-header-btns">
+          <button class="btn btn-ghost btn-sm" id="ask-claude-btn">Ask Claude</button>
           ${activeTab !== 'longterm' ? `<button class="btn btn-ghost btn-sm" id="presets-btn">Presets</button>` : ''}
           <button class="btn btn-primary" id="add-main-btn">+ Add</button>
         </div>
@@ -245,6 +246,11 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
             </select>
           </div>
         ` : ''}
+
+        <div class="form-group hidden" id="claude-url-group">
+          <label class="form-label">Claude.ai Chat URL (optional)</label>
+          <input class="input" id="quest-claude-url" type="url" placeholder="https://claude.ai/chat/…" />
+        </div>
 
         <div class="modal-actions">
           <button class="btn btn-ghost" id="close-quest-modal">Cancel</button>
@@ -470,6 +476,16 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     const objectiveSel = document.getElementById('quest-objective');
     if (objectiveSel) objectiveSel.value = quest ? (quest.objective_id || '') : '';
 
+    const claudeUrlGroup = document.getElementById('claude-url-group');
+    const claudeUrlInput = document.getElementById('quest-claude-url');
+    if (quest) {
+      claudeUrlGroup.classList.remove('hidden');
+      claudeUrlInput.value = quest.claude_chat_url || '';
+    } else {
+      claudeUrlGroup.classList.add('hidden');
+      claudeUrlInput.value = '';
+    }
+
     document.getElementById('quest-modal').classList.remove('hidden');
     document.getElementById('quest-title').focus();
   }
@@ -571,15 +587,17 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
     const frequency      = TAB_FREQ[activeTab] || 'daily';
     const parentQuestSel = document.getElementById('quest-parent-project');
     const objSel         = document.getElementById('quest-objective');
-    const parent_quest_id = parentQuestSel ? (parentQuestSel.value || null) : null;
-    const objective_id    = objSel         ? (objSel.value         || null) : null;
+    const parent_quest_id  = parentQuestSel ? (parentQuestSel.value || null) : null;
+    const objective_id     = objSel         ? (objSel.value         || null) : null;
+    const claudeUrlInput   = document.getElementById('quest-claude-url');
+    const claude_chat_url  = claudeUrlInput ? (claudeUrlInput.value.trim() || null) : null;
 
     if (!title) { showToast('Please enter a title', 'error'); return; }
 
     try {
       if (editingQuestId) {
         const updated = await updateQuest(editingQuestId,
-          { title, description, category, difficulty, deadline, parent_quest_id, objective_id });
+          { title, description, category, difficulty, deadline, parent_quest_id, objective_id, claude_chat_url });
         quests.splice(quests.findIndex(q => q.id === editingQuestId), 1, updated);
       } else {
         const newQ = await createQuest(userId,
@@ -741,6 +759,11 @@ function render(quests, objectives, container, userId, onXPUpdate, activeTab = '
       document.getElementById('obj-modal').classList.add('hidden');
       render(quests, objectives, container, userId, onXPUpdate, 'longterm', activeSort);
     } catch { showToast('Failed to save quest', 'error'); }
+  });
+
+  // ─── ASK CLAUDE ──────────────────────────────────────────────────────────
+  document.getElementById('ask-claude-btn').addEventListener('click', () => {
+    if (window.navigateTo) window.navigateTo('claude', 'Help me plan and create new quests for my goals.');
   });
 
   // ─── PRESETS ─────────────────────────────────────────────────────────────
@@ -1020,6 +1043,7 @@ function renderTaskCard(quest, parentProject) {
               ${diffBadge}
               ${quest.xp_reward > 0 ? `<span class="quest-xp gold">+${quest.xp_reward} XP</span>` : ''}
               ${deadlineEl}
+              ${quest.claude_chat_url ? `<a class="claude-url-link" href="${quest.claude_chat_url}" target="_blank" rel="noopener">Claude</a>` : ''}
             </div>
           </div>
         </div>
@@ -1061,6 +1085,7 @@ function renderProjectCard(project, linkedTasks, parentObjective) {
               ${diffBadge}
               ${project.xp_reward > 0 ? `<span class="quest-xp gold">+${project.xp_reward} XP</span>` : ''}
               ${deadlineEl}
+              ${project.claude_chat_url ? `<a class="claude-url-link" href="${project.claude_chat_url}" target="_blank" rel="noopener">Claude</a>` : ''}
             </div>
             ${linkedTasks.length > 0 ? `
               <div class="linked-tasks-list">

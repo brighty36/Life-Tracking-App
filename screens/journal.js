@@ -46,6 +46,9 @@ function render(entries, userId, container, onXPUpdate, activeFilter, reviewDate
           <h2 class="screen-title">Journal</h2>
           <p class="screen-sub">Your adventure log</p>
         </div>
+        <div>
+          <button class="btn btn-ghost btn-sm" id="journal-ask-claude-btn">Ask Claude</button>
+        </div>
       </div>
 
       <div class="tab-row">
@@ -108,6 +111,11 @@ function render(entries, userId, container, onXPUpdate, activeFilter, reviewDate
   let deletingEntryId  = null;
   let editingEntryId   = null;
   let editingOrigDate  = null;
+
+  // ── Ask Claude ─────────────────────────────────────────────────────────────
+  document.getElementById('journal-ask-claude-btn').addEventListener('click', () => {
+    if (window.navigateTo) window.navigateTo('claude', 'Review my recent activity log and tell me what patterns you notice.');
+  });
 
   // ── Filter tabs ────────────────────────────────────────────────────────────
   container.querySelector('.tab-row').addEventListener('click', (e) => {
