@@ -295,8 +295,8 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .badge-career    { background: rgba(21,88,246,0.1);   color: var(--stat-blue); }
 .badge-finance   { background: rgba(217,119,6,0.1);   color: var(--stat-amber); }
 
-/* ─── AUTH SCREEN ────────────────────────────────────────────────────────────── */
-#auth-screen {
+/* ─── PROFILE SELECTOR ──────────────────────────────────────────────────────── */
+#profile-screen {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -305,66 +305,58 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   background: var(--bg-primary);
 }
 
-.auth-container {
+.profile-selector {
   width: 100%;
-  max-width: 360px;
-}
-
-.auth-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  max-width: 600px;
   text-align: center;
-  margin-bottom: 1.75rem;
-  letter-spacing: -0.02em;
 }
 
-.auth-tabs {
-  display: flex;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+.profile-selector-logo { display: none; }
+
+.profile-selector-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.profile-selector-subtitle { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 2rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.profile-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
   margin-bottom: 1.25rem;
+  min-height: 60px;
+  align-items: start;
 }
 
-.auth-tab {
-  flex: 1;
-  padding: 0.55rem 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
+.profile-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 0.75rem;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
-  font-family: inherit;
-}
-
-.auth-tab.active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.auth-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  transition: border-color 0.12s, transform 0.1s;
+  font-family: inherit;
+  color: var(--text-primary);
+  width: 100%;
 }
 
-.auth-submit-btn { margin-top: 0.25rem; }
-
-.auth-error {
-  font-size: 0.78rem;
-  color: var(--error);
-  text-align: center;
-  margin: 0;
+.profile-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
 }
 
-.modal-subtitle {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  margin: -0.5rem 0 0.75rem;
-}
+.profile-card-avatar { }
+.profile-card-name   { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
+.profile-card-xp { font-size: 0.72rem; color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .avatar-initials {
   border-radius: var(--radius-md);
@@ -379,6 +371,21 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .avatar-lg { width: 48px; height: 48px; font-size: 1.1rem; border-radius: var(--radius-lg); }
 .avatar-md { width: 36px; height: 36px; font-size: 0.8rem; }
 .avatar-sm { width: 26px; height: 26px; font-size: 0.65rem; }
+
+.profile-empty { color: var(--text-secondary); font-size: 0.875rem; grid-column: 1 / -1; padding: 1rem 0; }
+
+.profile-new-btn {
+  padding: 0.65rem 2rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.switch-profile-btn {
+  margin-left: auto;
+  align-self: flex-start;
+  white-space: nowrap;
+}
 
 /* ─── APP SHELL ────────────────────────────────────────────────────────────── */
 #app-shell {
